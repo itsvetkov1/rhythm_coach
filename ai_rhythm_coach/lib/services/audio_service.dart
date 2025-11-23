@@ -34,8 +34,8 @@ class AudioService {
       _recorder = FlutterSoundRecorder();
       _player = FlutterSoundPlayer();
 
-      await _recorder!.openRecorder();
-      await _player!.openPlayer();
+      await _recorder!.openAudioSession();
+      await _player!.openAudioSession();
 
       _isInitialized = true;
     } catch (e) {
@@ -52,7 +52,7 @@ class AudioService {
       if (_recorder!.isRecording) {
         await _recorder!.stopRecorder();
       }
-      await _recorder!.closeRecorder();
+      await _recorder!.closeAudioSession();
       _recorder = null;
     }
 
@@ -60,7 +60,7 @@ class AudioService {
       if (_player!.isPlaying) {
         await _player!.stopPlayer();
       }
-      await _player!.closePlayer();
+      await _player!.closeAudioSession();
       _player = null;
     }
 
