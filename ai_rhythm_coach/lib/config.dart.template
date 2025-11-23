@@ -1,0 +1,23 @@
+// IMPORTANT: Copy this file to 'config.dart' and add your API keys
+// DO NOT commit config.dart to version control!
+
+enum AIProvider { anthropic, openai }
+
+class AIConfig {
+  // Configure which AI provider to use
+  static const AIProvider provider = AIProvider.anthropic;
+
+  // API Keys - Replace with your actual API keys
+  // Get Anthropic API key from: https://console.anthropic.com/
+  // Get OpenAI API key from: https://platform.openai.com/api-keys
+  static const String anthropicApiKey = 'YOUR_ANTHROPIC_API_KEY_HERE';
+  static const String openaiApiKey = 'YOUR_OPENAI_API_KEY_HERE';
+
+  // API Endpoints (no need to change)
+  static const String anthropicEndpoint = 'https://api.anthropic.com/v1/messages';
+  static const String openaiEndpoint = 'https://api.openai.com/v1/chat/completions';
+
+  // Model configurations
+  static const String anthropicModel = 'claude-3-5-sonnet-20241022';
+  static const String openaiModel = 'gpt-4';
+}
