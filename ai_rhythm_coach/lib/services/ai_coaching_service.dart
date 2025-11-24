@@ -84,8 +84,8 @@ Keep the tone positive and motivational.''';
   // Call Anthropic Claude API
   Future<String> _callClaudeAPI(String prompt) async {
     if (AIConfig.anthropicApiKey == 'YOUR_ANTHROPIC_API_KEY_HERE') {
-      throw AIServiceException(
-          'Anthropic API key not configured. Please update lib/config.dart');
+      print('Warning: Anthropic API key not configured. Using mock response.');
+      return _getMockCoachingResponse();
     }
 
     try {
@@ -123,8 +123,8 @@ Keep the tone positive and motivational.''';
   // Call OpenAI GPT API
   Future<String> _callOpenAIAPI(String prompt) async {
     if (AIConfig.openaiApiKey == 'YOUR_OPENAI_API_KEY_HERE') {
-      throw AIServiceException(
-          'OpenAI API key not configured. Please update lib/config.dart');
+      print('Warning: OpenAI API key not configured. Using mock response.');
+      return _getMockCoachingResponse();
     }
 
     try {
@@ -161,5 +161,12 @@ Keep the tone positive and motivational.''';
     } catch (e) {
       throw AIServiceException('Failed to call OpenAI API: $e');
     }
+  }
+
+  String _getMockCoachingResponse() {
+    return "This is a simulated coaching response because no API key was configured.\n\n"
+        "Great effort! Your consistency is looking good. "
+        "Try to focus on relaxing your grip to improve your timing on the faster sections. "
+        "Practice with a metronome at a slower tempo to lock in the groove.";
   }
 }

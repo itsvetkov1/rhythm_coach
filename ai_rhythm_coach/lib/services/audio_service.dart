@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -16,6 +18,8 @@ class AudioService {
   Timer? _metronomeTimer;
   int _beatCount = 0;
   String? _currentRecordingPath;
+  String? _clickHighPath;
+  String? _clickLowPath;
 
   bool _isInitialized = false;
 
@@ -34,13 +38,25 @@ class AudioService {
       _recorder = FlutterSoundRecorder();
       _player = FlutterSoundPlayer();
 
-      await _recorder!.openAudioSession();
-      await _player!.openAudioSession();
+      await _recorder!.openRecorder();
+      await _player!.openPlayer();
+
+      _clickHighPath = await _loadAssetToLocalFile('assets/audio/click_high.wav', 'click_high.wav');
+      _clickLowPath = await _loadAssetToLocalFile('assets/audio/click_low.wav', 'click_low.wav');
 
       _isInitialized = true;
     } catch (e) {
       throw AudioRecordingException('Failed to initialize audio: $e');
     }
+  }
+
+  Future<String> _loadAssetToLocalFile(String assetPath, String filename) async {
+    final dir = await getTemporaryDirectory();
+    final file = File('${dir.path}/$filename');
+    if (await file.exists()) return file.path;
+    final byteData = await rootBundle.load(assetPath);
+    await file.writeAsBytes(byteData.buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes));
+    return file.path;
   }
 
   // Cleanup resources
@@ -52,7 +68,7 @@ class AudioService {
       if (_recorder!.isRecording) {
         await _recorder!.stopRecorder();
       }
-      await _recorder!.closeAudioSession();
+      await _recorder!.closeRecorder();
       _recorder = null;
     }
 
@@ -60,7 +76,7 @@ class AudioService {
       if (_player!.isPlaying) {
         await _player!.stopPlayer();
       }
-      await _player!.closeAudioSession();
+      await _player!.closePlayer();
       _player = null;
     }
 
@@ -79,7 +95,7 @@ class AudioService {
       try {
         // Play high click for count-in
         await _player!.startPlayer(
-          fromURI: 'assets/audio/click_high.wav',
+          fromURI: _clickHighPath,
           codec: Codec.pcm16WAV,
           whenFinished: () {},
         );
@@ -99,11 +115,11 @@ class AudioService {
     try {
       final directory = await getApplicationDocumentsDirectory();
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      _currentRecordingPath = '${directory.path}/recording_$timestamp.aac';
+      _currentRecordingPath = '${directory.path}/recording_$timestamp.wav';
 
       await _recorder!.startRecorder(
         toFile: _currentRecordingPath,
-        codec: Codec.aacADTS,
+        codec: Codec.pcm16WAV,
       );
     } catch (e) {
       throw AudioRecordingException('Failed to start recording: $e');
@@ -142,8 +158,8 @@ class AudioService {
       try {
         // Play high click on beat 1, low click on others
         final clickFile = (_beatCount % 4 == 1)
-            ? 'assets/audio/click_high.wav'
-            : 'assets/audio/click_low.wav';
+            ? _clickHighPath
+            : _clickLowPath;
 
         await _player!.startPlayer(
           fromURI: clickFile,
@@ -172,7 +188,7 @@ class AudioService {
     try {
       await _player!.startPlayer(
         fromURI: filePath,
-        codec: Codec.aacADTS,
+        codec: Codec.pcm16WAV,
         whenFinished: () {},
       );
     } catch (e) {
