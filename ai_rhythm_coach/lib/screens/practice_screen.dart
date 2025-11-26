@@ -6,9 +6,33 @@ import 'results_screen.dart';
 import '../widgets/practice_state_ui.dart';
 import '../widgets/bpm_controls.dart';
 import '../widgets/practice_action_button.dart';
+import '../widgets/headphones_warning_dialog.dart';
 
-class PracticeScreen extends StatelessWidget {
+class PracticeScreen extends StatefulWidget {
   const PracticeScreen({super.key});
+
+  @override
+  State<PracticeScreen> createState() => _PracticeScreenState();
+}
+
+class _PracticeScreenState extends State<PracticeScreen> {
+  bool _hasShownHeadphonesWarning = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Show headphones warning dialog after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showHeadphonesWarning();
+    });
+  }
+
+  Future<void> _showHeadphonesWarning() async {
+    if (!_hasShownHeadphonesWarning && mounted) {
+      _hasShownHeadphonesWarning = true;
+      await HeadphonesWarningDialog.show(context);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
