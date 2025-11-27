@@ -156,6 +156,8 @@ class PracticeController extends ChangeNotifier {
       _errorMessage = error.message;
     } else if (error is AIServiceException) {
       _errorMessage = error.message;
+    } else if (error is MetronomeBleedException) {
+      _errorMessage = error.message;
     } else {
       _errorMessage = 'An unexpected error occurred: ${error.toString()}';
     }

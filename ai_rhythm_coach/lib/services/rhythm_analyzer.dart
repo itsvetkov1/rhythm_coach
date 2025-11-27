@@ -3,6 +3,13 @@ import 'dart:math';
 import 'package:fftea/fftea.dart';
 import '../models/tap_event.dart';
 
+class MetronomeBleedException implements Exception {
+  final String message;
+  MetronomeBleedException(this.message);
+  @override
+  String toString() => message;
+}
+
 class RhythmAnalyzer {
   static const int fftSize = 2048;
   static const int hopSize = 512;
@@ -31,6 +38,18 @@ class RhythmAnalyzer {
 
       // Match onsets to nearest expected beats
       final tapEvents = _matchOnsetsToBeats(onsetTimes, expectedBeats);
+
+      // Check for metronome bleed (extremely high consistency)
+      // Machine-generated audio loopback (bleed) has near-zero variance (< 1ms).
+      // Human playing, even professional, rarely achieves < 5-10ms consistency over 60s.
+      if (tapEvents.isNotEmpty) {
+        final consistency = calculateConsistency(tapEvents);
+        if (consistency < 3.0) {
+          // It's likely the microphone hearing the metronome speaker
+          throw MetronomeBleedException(
+              'Metronome bleed detected (Consistency: ${consistency.toStringAsFixed(2)}ms). Please use headphones to prevent the microphone from picking up the metronome.');
+        }
+      }
 
       return tapEvents;
     } catch (e) {

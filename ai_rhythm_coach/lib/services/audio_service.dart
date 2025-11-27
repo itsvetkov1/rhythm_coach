@@ -4,6 +4,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 
 class AudioRecordingException implements Exception {
   final String message;
@@ -117,11 +118,22 @@ class AudioService {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       _currentRecordingPath = '${directory.path}/recording_$timestamp.wav';
 
+      // Log device info
+      if (Platform.isAndroid) {
+        final deviceInfo = DeviceInfoPlugin();
+        final androidInfo = await deviceInfo.androidInfo;
+        print('AudioService: Recording on device: ${androidInfo.manufacturer} ${androidInfo.model} (${androidInfo.device})');
+      }
+
+      print('AudioService: Starting recording to $_currentRecordingPath');
+
       await _recorder!.startRecorder(
         toFile: _currentRecordingPath,
         codec: Codec.pcm16WAV,
       );
+      print('AudioService: Recorder started successfully');
     } catch (e) {
+      print('AudioService: Failed to start recording: $e');
       throw AudioRecordingException('Failed to start recording: $e');
     }
   }
@@ -134,11 +146,14 @@ class AudioService {
 
     try {
       await _recorder!.stopRecorder();
+      print('AudioService: Recording stopped');
       if (_currentRecordingPath == null) {
         throw AudioRecordingException('No recording path available');
       }
+      print('AudioService: Recording saved to $_currentRecordingPath');
       return _currentRecordingPath!;
     } catch (e) {
+      print('AudioService: Failed to stop recording: $e');
       throw AudioRecordingException('Failed to stop recording: $e');
     }
   }
