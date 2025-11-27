@@ -1,0 +1,61 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - 'claude/**'
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Debug APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+          cache: true
+
+      - name: Get dependencies
+        working-directory: ./ai_rhythm_coach
+        run: flutter pub get
+
+      - name: Analyze code
+        working-directory: ./ai_rhythm_coach
+        run: flutter analyze --no-fatal-infos
+        continue-on-error: true
+
+      - name: Run tests
+        working-directory: ./ai_rhythm_coach
+        run: flutter test
+        continue-on-error: true
+
+      - name: Build debug APK
+        working-directory: ./ai_rhythm_coach
+        run: flutter build apk --debug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-apk
+          path: ai_rhythm_coach/build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 30
+
+      - name: Get APK info
+        working-directory: ./ai_rhythm_coach
+        run: |
+          echo "APK built successfully!"
+          ls -lh build/app/outputs/flutter-apk/app-debug.apk
