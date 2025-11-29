@@ -7,9 +7,9 @@ class RhythmAnalyzer {
   static const int fftSize = 2048;
   static const int hopSize = 512;
   static const double sampleRate = 44100;
-  static const double onsetThreshold = 0.3; // Threshold for normalized spectral flux
-  static const double minSignalEnergy = 0.001; // Minimum RMS energy to consider as valid signal
-  static const double noiseFloor = 0.0001; // Ignore samples below this threshold
+  static const double onsetThreshold = 0.15; // Threshold for normalized spectral flux (lowered for sensitivity)
+  static const double minSignalEnergy = 0.0001; // Minimum RMS energy (very sensitive)
+  static const double noiseFloor = 0.00001; // Ignore samples below this threshold
 
   // Analyze audio file for rhythm accuracy
   Future<List<TapEvent>> analyzeAudio({
@@ -27,6 +27,10 @@ class RhythmAnalyzer {
 
       // Check if recording has sufficient signal energy
       final rmsEnergy = _calculateRMS(samples);
+      print('DEBUG: Recording RMS energy: ${rmsEnergy.toStringAsFixed(6)}');
+      print('DEBUG: Minimum required energy: ${minSignalEnergy.toStringAsFixed(6)}');
+      print('DEBUG: Total samples loaded: ${samples.length}');
+
       if (rmsEnergy < minSignalEnergy) {
         // Recording is too quiet or silent - no valid performance detected
         print('Warning: Recording energy too low (RMS: ${rmsEnergy.toStringAsFixed(6)}). '
@@ -36,6 +40,10 @@ class RhythmAnalyzer {
 
       // Detect onset times (in seconds)
       final onsetTimes = _detectOnsets(samples);
+      print('DEBUG: Detected ${onsetTimes.length} onsets');
+      if (onsetTimes.isNotEmpty) {
+        print('DEBUG: First few onset times: ${onsetTimes.take(5).toList()}');
+      }
 
       // Generate expected beat times
       final expectedBeats = _generateExpectedBeats(bpm, durationSeconds);
@@ -78,14 +86,15 @@ class RhythmAnalyzer {
       // Read file bytes
       final bytes = await file.readAsBytes();
 
-      // For AAC files, we'll skip the header and read the audio data
-      // This is a simplified approach - proper decoding would use FFmpeg
-      // For MVP, we'll use amplitude detection from raw bytes
+      // For WAV files, we'll skip the header and read the PCM audio data
+      // Standard WAV header is 44 bytes (RIFF + fmt + data chunks)
       final samples = <double>[];
 
-      // Convert bytes to amplitude values (simplified)
-      // Skip first 1024 bytes (approximate header size)
-      final startIndex = min(1024, bytes.length);
+      // Convert bytes to amplitude values (16-bit PCM)
+      // Skip first 44 bytes (actual WAV header size, not 1024!)
+      final startIndex = min(44, bytes.length);
+
+      print('DEBUG: Audio file size: ${bytes.length} bytes');
 
       for (int i = startIndex; i < bytes.length - 1; i += 2) {
         // Read 16-bit samples
