@@ -7,7 +7,9 @@ class RhythmAnalyzer {
   static const int fftSize = 2048;
   static const int hopSize = 512;
   static const double sampleRate = 44100;
-  static const double onsetThreshold = 0.1; // Will need tuning
+  static const double onsetThreshold = 5.0; // Increased to reduce false positives
+  static const double minSignalEnergy = 0.01; // Minimum RMS energy to consider as valid signal
+  static const double noiseFloor = 0.001; // Ignore samples below this threshold
 
   // Analyze audio file for rhythm accuracy
   Future<List<TapEvent>> analyzeAudio({
@@ -20,6 +22,15 @@ class RhythmAnalyzer {
       final samples = await _loadAudioSamples(audioFilePath);
 
       if (samples.isEmpty) {
+        return [];
+      }
+
+      // Check if recording has sufficient signal energy
+      final rmsEnergy = _calculateRMS(samples);
+      if (rmsEnergy < minSignalEnergy) {
+        // Recording is too quiet or silent - no valid performance detected
+        print('Warning: Recording energy too low (RMS: ${rmsEnergy.toStringAsFixed(6)}). '
+            'Please tap louder or check microphone.');
         return [];
       }
 
@@ -37,6 +48,21 @@ class RhythmAnalyzer {
       // Return empty list if analysis fails
       return [];
     }
+  }
+
+  // Calculate RMS (Root Mean Square) energy of the signal
+  double _calculateRMS(List<double> samples) {
+    if (samples.isEmpty) return 0.0;
+
+    double sumSquares = 0.0;
+    for (final sample in samples) {
+      // Ignore samples below noise floor
+      if (sample.abs() > noiseFloor) {
+        sumSquares += sample * sample;
+      }
+    }
+
+    return sqrt(sumSquares / samples.length);
   }
 
   // Load audio file and convert to samples
@@ -107,16 +133,26 @@ class RhythmAnalyzer {
       // Calculate spectral flux (difference from previous frame)
       if (previousMagnitudes != null) {
         double flux = 0.0;
+        double previousEnergy = 0.0;
+
+        // Calculate flux and previous frame energy
         for (int j = 0; j < magnitudes.length; j++) {
           final diff = magnitudes[j] - previousMagnitudes[j];
           // Only consider increases (positive differences)
           if (diff > 0) {
             flux += diff;
           }
+          previousEnergy += previousMagnitudes[j];
         }
 
-        // If flux exceeds threshold, mark as onset
-        if (flux > onsetThreshold) {
+        // Normalize flux by previous frame energy to handle varying volume levels
+        // Add small epsilon to avoid division by zero
+        final normalizedFlux = previousEnergy > 0
+            ? flux / (previousEnergy + 0.0001)
+            : 0.0;
+
+        // If normalized flux exceeds threshold, mark as onset
+        if (normalizedFlux > onsetThreshold) {
           final timeInSeconds = i / sampleRate;
           // Avoid marking onsets too close together (minimum 50ms apart)
           if (onsets.isEmpty || (timeInSeconds - onsets.last) > 0.05) {

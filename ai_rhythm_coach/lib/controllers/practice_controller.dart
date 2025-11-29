@@ -88,7 +88,18 @@ class PracticeController extends ChangeNotifier {
       // Check if we have enough tap events
       if (tapEvents.isEmpty) {
         throw Exception(
-            'No beats detected. Please tap louder or check microphone.');
+            'No beats detected. Please:\n'
+            '• Tap louder (clap your hands or hit a surface firmly)\n'
+            '• Check that microphone permission is granted\n'
+            '• Make sure headphones are connected (so metronome doesn\'t interfere)\n'
+            '• Ensure you\'re actually making sound during the recording');
+      }
+
+      // Warn if very few beats detected (might indicate problem)
+      final expectedBeats = (60 * _bpm / 60).round(); // Expected beats in 60 seconds
+      if (tapEvents.length < expectedBeats * 0.2) { // Less than 20% of expected
+        print('Warning: Only ${tapEvents.length} beats detected (expected ~$expectedBeats). '
+            'User may not be tapping consistently or loud enough.');
       }
 
       // Calculate metrics
