@@ -7,9 +7,9 @@ class RhythmAnalyzer {
   static const int fftSize = 2048;
   static const int hopSize = 512;
   static const double sampleRate = 44100;
-  static const double onsetThreshold = 5.0; // Increased to reduce false positives
-  static const double minSignalEnergy = 0.01; // Minimum RMS energy to consider as valid signal
-  static const double noiseFloor = 0.001; // Ignore samples below this threshold
+  static const double onsetThreshold = 0.3; // Threshold for normalized spectral flux
+  static const double minSignalEnergy = 0.001; // Minimum RMS energy to consider as valid signal
+  static const double noiseFloor = 0.0001; // Ignore samples below this threshold
 
   // Analyze audio file for rhythm accuracy
   Future<List<TapEvent>> analyzeAudio({
