@@ -54,6 +54,17 @@ class ResultsScreen extends StatelessWidget {
               style: const TextStyle(fontSize: 18, color: Colors.grey),
               textAlign: TextAlign.center,
             ),
+            const SizedBox(height: 4),
+            Text(
+              'Duration: ${session.durationSeconds}s${session.durationSeconds < 60 ? ' (stopped early)' : ''}',
+              style: TextStyle(
+                fontSize: 16,
+                color: session.durationSeconds < 60
+                    ? Colors.orange
+                    : Colors.grey,
+              ),
+              textAlign: TextAlign.center,
+            ),
 
             const SizedBox(height: 32),
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import '../models/practice_state.dart';
@@ -13,6 +14,8 @@ class PracticeController extends ChangeNotifier {
   Session? _currentSession;
   String? _errorMessage;
   int _recordingTimeRemaining = 60; // Countdown timer
+  DateTime? _recordingStartTime; // Track when recording started
+  Timer? _countdownTimer; // Timer for countdown
 
   // Services (injected)
   final AudioService _audioService;
@@ -51,30 +54,48 @@ class PracticeController extends ChangeNotifier {
 
       // Start recording + metronome simultaneously
       _setState(PracticeState.recording);
+      _recordingStartTime = DateTime.now(); // Track when recording started
       await _audioService.startRecording();
       await _audioService.startMetronome(_bpm);
 
       // Countdown timer for 60 seconds
       _recordingTimeRemaining = 60;
-      for (int i = 0; i < 60; i++) {
-        await Future.delayed(const Duration(seconds: 1));
+      _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
         _recordingTimeRemaining--;
         notifyListeners();
-      }
 
+        // Auto-stop after 60 seconds
+        if (_recordingTimeRemaining <= 0) {
+          timer.cancel();
+          _finishRecording();
+        }
+      });
+    } catch (e) {
+      _handleError(e);
+    }
+  }
+
+  // Finish recording (called automatically after 60s or when user stops early)
+  Future<void> _finishRecording() async {
+    try {
       // Stop recording + metronome
       final audioFilePath = await _audioService.stopRecording();
       await _audioService.stopMetronome();
 
+      // Calculate actual duration
+      final actualDuration = _recordingStartTime != null
+          ? DateTime.now().difference(_recordingStartTime!).inSeconds
+          : 60;
+
       // Process results
-      await _processSession(audioFilePath);
+      await _processSession(audioFilePath, actualDuration);
     } catch (e) {
       _handleError(e);
     }
   }
 
   // Process recorded audio to generate coaching
-  Future<void> _processSession(String audioFilePath) async {
+  Future<void> _processSession(String audioFilePath, int actualDuration) async {
     try {
       _setState(PracticeState.processing);
 
@@ -82,7 +103,7 @@ class PracticeController extends ChangeNotifier {
       final tapEvents = await _rhythmAnalyzer.analyzeAudio(
         audioFilePath: audioFilePath,
         bpm: _bpm,
-        durationSeconds: 60,
+        durationSeconds: actualDuration,
       );
 
       // Check if we have enough tap events
@@ -119,7 +140,7 @@ class PracticeController extends ChangeNotifier {
         id: const Uuid().v4(),
         timestamp: DateTime.now(),
         bpm: _bpm,
-        durationSeconds: 60,
+        durationSeconds: actualDuration,
         audioFilePath: audioFilePath,
         tapEvents: tapEvents,
         averageError: averageError,
@@ -146,10 +167,13 @@ class PracticeController extends ChangeNotifier {
 
   // Reset to idle state
   void reset() {
+    _countdownTimer?.cancel();
+    _countdownTimer = null;
     _state = PracticeState.idle;
     _currentSession = null;
     _errorMessage = null;
     _recordingTimeRemaining = 60;
+    _recordingStartTime = null;
     notifyListeners();
   }
 
@@ -176,13 +200,16 @@ class PracticeController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Stop current session (if recording)
+  // Stop current session (if recording) and process results
   Future<void> stopSession() async {
     if (_state == PracticeState.recording) {
       try {
-        await _audioService.stopRecording();
-        await _audioService.stopMetronome();
-        reset();
+        // Cancel the countdown timer
+        _countdownTimer?.cancel();
+        _countdownTimer = null;
+
+        // Finish recording and process results
+        await _finishRecording();
       } catch (e) {
         _handleError(e);
       }
@@ -191,6 +218,7 @@ class PracticeController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _countdownTimer?.cancel();
     _audioService.dispose();
     super.dispose();
   }
