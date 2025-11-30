@@ -42,9 +42,10 @@ class AudioService {
       await _recorder!.openRecorder();
       await _player!.openPlayer();
 
-      // Configure audio routing to prevent metronome from being recorded
-      // Route playback to headphones/wired output (not speaker)
-      await _configureAudioRouting();
+      // Note: Audio routing is handled automatically by the OS
+      // When headphones are connected, audio output automatically routes to headphones
+      // while recording input comes from the built-in microphone
+      // This physical separation prevents metronome from being recorded
 
       _clickHighPath = await _loadAssetToLocalFile('assets/audio/click_high.wav', 'click_high.wav');
       _clickLowPath = await _loadAssetToLocalFile('assets/audio/click_low.wav', 'click_low.wav');
@@ -52,40 +53,6 @@ class AudioService {
       _isInitialized = true;
     } catch (e) {
       throw AudioRecordingException('Failed to initialize audio: $e');
-    }
-  }
-
-  /// Configure audio routing to ensure metronome plays through headphones
-  /// and doesn't get recorded by the microphone.
-  ///
-  /// This is CRITICAL for accurate onset detection. If the metronome clicks
-  /// are recorded along with the user's performance, the onset detection
-  /// algorithm will detect metronome clicks as user beats, ruining the analysis.
-  ///
-  /// Strategy: Set audio session to playAndRecord mode, which allows simultaneous
-  /// recording and playback. When headphones are connected:
-  /// - Audio output (metronome) automatically routes to headphones
-  /// - Audio input (recording) comes from built-in microphone
-  /// - This physically separates the output and input, preventing metronome capture
-  Future<void> _configureAudioRouting() async {
-    try {
-      // Configure audio session for simultaneous playback and recording
-      // This enables the app to play metronome while recording user performance
-      await _player!.setAudioFocus(
-        focus: AudioFocus.requestFocusAndDuckOthers,
-        category: SessionCategory.playAndRecord,
-        mode: SessionMode.modeDefault,
-        device: AudioDevice.speaker, // Allow any available audio device
-      );
-
-      // Note: When headphones are physically connected, the OS will automatically
-      // route audio output to the headphones. We don't force a specific device
-      // to allow compatibility with both wired and bluetooth headphones.
-    } catch (e) {
-      // If audio routing fails, log but don't crash
-      // The app will still work if user has headphones connected
-      // The OS will handle routing naturally
-      print('Warning: Failed to configure audio routing: $e');
     }
   }
 

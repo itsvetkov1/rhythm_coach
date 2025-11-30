@@ -14,7 +14,9 @@ class RhythmAnalyzer {
   static const int fftSize = 2048;
   static const int hopSize = 512;
   static const double sampleRate = 44100;
-  static const double onsetThreshold = 0.1; // Will need tuning
+  static const double onsetThreshold = 0.15; // Threshold for normalized spectral flux (lowered for sensitivity)
+  static const double minSignalEnergy = 0.0001; // Minimum RMS energy (very sensitive)
+  static const double noiseFloor = 0.00001; // Ignore samples below this threshold
 
   // Analyze audio file for rhythm accuracy
   Future<List<TapEvent>> analyzeAudio({
@@ -30,8 +32,25 @@ class RhythmAnalyzer {
         return [];
       }
 
+      // Check if recording has sufficient signal energy
+      final rmsEnergy = _calculateRMS(samples);
+      print('DEBUG: Recording RMS energy: ${rmsEnergy.toStringAsFixed(6)}');
+      print('DEBUG: Minimum required energy: ${minSignalEnergy.toStringAsFixed(6)}');
+      print('DEBUG: Total samples loaded: ${samples.length}');
+
+      if (rmsEnergy < minSignalEnergy) {
+        // Recording is too quiet or silent - no valid performance detected
+        print('Warning: Recording energy too low (RMS: ${rmsEnergy.toStringAsFixed(6)}). '
+            'Please tap louder or check microphone.');
+        return [];
+      }
+
       // Detect onset times (in seconds)
       final onsetTimes = _detectOnsets(samples);
+      print('DEBUG: Detected ${onsetTimes.length} onsets');
+      if (onsetTimes.isNotEmpty) {
+        print('DEBUG: First few onset times: ${onsetTimes.take(5).toList()}');
+      }
 
       // Generate expected beat times
       final expectedBeats = _generateExpectedBeats(bpm, durationSeconds);
@@ -58,6 +77,21 @@ class RhythmAnalyzer {
     }
   }
 
+  // Calculate RMS (Root Mean Square) energy of the signal
+  double _calculateRMS(List<double> samples) {
+    if (samples.isEmpty) return 0.0;
+
+    double sumSquares = 0.0;
+    for (final sample in samples) {
+      // Ignore samples below noise floor
+      if (sample.abs() > noiseFloor) {
+        sumSquares += sample * sample;
+      }
+    }
+
+    return sqrt(sumSquares / samples.length);
+  }
+
   // Load audio file and convert to samples
   // This is a simplified implementation that reads raw audio data
   // In production, you'd use a proper audio decoding library
@@ -71,14 +105,15 @@ class RhythmAnalyzer {
       // Read file bytes
       final bytes = await file.readAsBytes();
 
-      // For AAC files, we'll skip the header and read the audio data
-      // This is a simplified approach - proper decoding would use FFmpeg
-      // For MVP, we'll use amplitude detection from raw bytes
+      // For WAV files, we'll skip the header and read the PCM audio data
+      // Standard WAV header is 44 bytes (RIFF + fmt + data chunks)
       final samples = <double>[];
 
-      // Convert bytes to amplitude values (simplified)
-      // Skip first 1024 bytes (approximate header size)
-      final startIndex = min(1024, bytes.length);
+      // Convert bytes to amplitude values (16-bit PCM)
+      // Skip first 44 bytes (actual WAV header size, not 1024!)
+      final startIndex = min(44, bytes.length);
+
+      print('DEBUG: Audio file size: ${bytes.length} bytes');
 
       for (int i = startIndex; i < bytes.length - 1; i += 2) {
         // Read 16-bit samples
@@ -126,16 +161,26 @@ class RhythmAnalyzer {
       // Calculate spectral flux (difference from previous frame)
       if (previousMagnitudes != null) {
         double flux = 0.0;
+        double previousEnergy = 0.0;
+
+        // Calculate flux and previous frame energy
         for (int j = 0; j < magnitudes.length; j++) {
           final diff = magnitudes[j] - previousMagnitudes[j];
           // Only consider increases (positive differences)
           if (diff > 0) {
             flux += diff;
           }
+          previousEnergy += previousMagnitudes[j];
         }
 
-        // If flux exceeds threshold, mark as onset
-        if (flux > onsetThreshold) {
+        // Normalize flux by previous frame energy to handle varying volume levels
+        // Add small epsilon to avoid division by zero
+        final normalizedFlux = previousEnergy > 0
+            ? flux / (previousEnergy + 0.0001)
+            : 0.0;
+
+        // If normalized flux exceeds threshold, mark as onset
+        if (normalizedFlux > onsetThreshold) {
           final timeInSeconds = i / sampleRate;
           // Avoid marking onsets too close together (minimum 50ms apart)
           if (onsets.isEmpty || (timeInSeconds - onsets.last) > 0.05) {
