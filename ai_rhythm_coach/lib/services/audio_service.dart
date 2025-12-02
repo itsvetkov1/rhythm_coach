@@ -155,7 +155,22 @@ class AudioService {
       if (_currentRecordingPath == null) {
         throw AudioRecordingException('No recording path available');
       }
-      print('AudioService: Recording saved to $_currentRecordingPath');
+
+      // Verify the file exists and has content
+      final file = File(_currentRecordingPath!);
+      if (await file.exists()) {
+        final fileSize = await file.length();
+        print('AudioService: Recording saved to $_currentRecordingPath');
+        print('AudioService: File size: $fileSize bytes');
+
+        if (fileSize < 100) {
+          print('WARNING: Recording file is very small ($fileSize bytes) - may be empty or corrupted');
+        }
+      } else {
+        print('ERROR: Recording file does not exist at $_currentRecordingPath');
+        throw AudioRecordingException('Recording file was not created');
+      }
+
       return _currentRecordingPath!;
     } catch (e) {
       print('AudioService: Failed to stop recording: $e');

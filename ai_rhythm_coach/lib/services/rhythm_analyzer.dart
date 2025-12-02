@@ -82,8 +82,10 @@ class RhythmAnalyzer {
       }
 
       return tapEvents;
-    } catch (e) {
-      // Return empty list if analysis fails
+    } catch (e, stackTrace) {
+      // Log error and return empty list if analysis fails
+      print('ERROR: Rhythm analysis failed: $e');
+      print('Stack trace: $stackTrace');
       return [];
     }
   }
@@ -101,38 +103,92 @@ class RhythmAnalyzer {
   }
 
   // Load audio file and convert to samples
-  // This is a simplified implementation that reads raw audio data
-  // In production, you'd use a proper audio decoding library
+  // Properly parses WAV file structure to find the audio data chunk
   Future<List<double>> _loadAudioSamples(String filePath) async {
     try {
       final file = File(filePath);
       if (!await file.exists()) {
+        print('DEBUG: Audio file does not exist: $filePath');
         return [];
       }
 
       // Read file bytes
       final bytes = await file.readAsBytes();
-
-      // For WAV files, we'll skip the header and read the PCM audio data
-      // Standard WAV header is 44 bytes (RIFF + fmt + data chunks)
-      final samples = <double>[];
-
-      // Convert bytes to amplitude values (16-bit PCM)
-      // Skip first 44 bytes (actual WAV header size, not 1024!)
-      final startIndex = min(44, bytes.length);
-
       print('DEBUG: Audio file size: ${bytes.length} bytes');
 
-      for (int i = startIndex; i < bytes.length - 1; i += 2) {
-        // Read 16-bit samples
+      if (bytes.length < 44) {
+        print('DEBUG: File too small to be valid WAV (< 44 bytes)');
+        return [];
+      }
+
+      // Verify RIFF header
+      final riffHeader = String.fromCharCodes(bytes.sublist(0, 4));
+      if (riffHeader != 'RIFF') {
+        print('DEBUG: Not a valid WAV file (missing RIFF header)');
+        return [];
+      }
+
+      // Verify WAVE format
+      final waveFormat = String.fromCharCodes(bytes.sublist(8, 12));
+      if (waveFormat != 'WAVE') {
+        print('DEBUG: Not a valid WAV file (missing WAVE format)');
+        return [];
+      }
+
+      // Find the 'data' chunk by searching through the file
+      // WAV files can have multiple chunks (fmt, fact, LIST, INFO, data, etc.)
+      int dataOffset = -1;
+      int dataSize = 0;
+      int offset = 12; // Start after RIFF header
+
+      while (offset < bytes.length - 8) {
+        final chunkId = String.fromCharCodes(bytes.sublist(offset, offset + 4));
+        final chunkSize = bytes[offset + 4] |
+                         (bytes[offset + 5] << 8) |
+                         (bytes[offset + 6] << 16) |
+                         (bytes[offset + 7] << 24);
+
+        print('DEBUG: Found chunk "$chunkId" at offset $offset, size $chunkSize bytes');
+
+        if (chunkId == 'data') {
+          dataOffset = offset + 8; // Skip chunk header
+          dataSize = chunkSize;
+          break;
+        }
+
+        // Move to next chunk
+        offset += 8 + chunkSize;
+
+        // WAV chunks are word-aligned (even-byte boundary)
+        if (chunkSize % 2 == 1) {
+          offset += 1;
+        }
+      }
+
+      if (dataOffset == -1) {
+        print('DEBUG: Could not find data chunk in WAV file');
+        return [];
+      }
+
+      print('DEBUG: Data chunk found at offset $dataOffset, size $dataSize bytes');
+
+      // Convert bytes to amplitude values (16-bit PCM)
+      final samples = <double>[];
+      final endOffset = min(dataOffset + dataSize, bytes.length);
+
+      for (int i = dataOffset; i < endOffset - 1; i += 2) {
+        // Read 16-bit little-endian samples
         final sample = (bytes[i] | (bytes[i + 1] << 8));
         final signed = sample > 32767 ? sample - 65536 : sample;
         final normalized = signed / 32768.0;
         samples.add(normalized);
       }
 
+      print('DEBUG: Parsed ${samples.length} audio samples from WAV file');
+
       return samples;
     } catch (e) {
+      print('DEBUG: Error loading audio samples: $e');
       return [];
     }
   }
