@@ -14,8 +14,8 @@ class RhythmAnalyzer {
   static const int fftSize = 2048;
   static const int hopSize = 512;
   static const double sampleRate = 44100;
-  static const double onsetThreshold = 0.15; // Threshold for normalized spectral flux (lowered for sensitivity)
-  static const double minSignalEnergy = 0.0001; // Minimum RMS energy (very sensitive)
+  static const double onsetThreshold = 0.12; // Threshold for normalized spectral flux (lowered for maximum sensitivity)
+  static const double minSignalEnergy = 0.00003; // Minimum RMS energy (extremely sensitive to detect even soft claps)
   static const double noiseFloor = 0.00001; // Ignore samples below this threshold
 
   // Analyze audio file for rhythm accuracy
@@ -34,14 +34,22 @@ class RhythmAnalyzer {
 
       // Check if recording has sufficient signal energy
       final rmsEnergy = _calculateRMS(samples);
-      print('DEBUG: Recording RMS energy: ${rmsEnergy.toStringAsFixed(6)}');
-      print('DEBUG: Minimum required energy: ${minSignalEnergy.toStringAsFixed(6)}');
+      final maxAmplitude = samples.map((s) => s.abs()).reduce((a, b) => a > b ? a : b);
+      final duration = samples.length / sampleRate;
+
+      print('DEBUG: ========== Audio Analysis Debug Info ==========');
       print('DEBUG: Total samples loaded: ${samples.length}');
+      print('DEBUG: Duration: ${duration.toStringAsFixed(2)}s');
+      print('DEBUG: Recording RMS energy: ${rmsEnergy.toStringAsFixed(6)}');
+      print('DEBUG: Max amplitude: ${maxAmplitude.toStringAsFixed(6)}');
+      print('DEBUG: Minimum required energy: ${minSignalEnergy.toStringAsFixed(6)}');
+      print('DEBUG: Energy check: ${rmsEnergy >= minSignalEnergy ? "PASS" : "FAIL"}');
 
       if (rmsEnergy < minSignalEnergy) {
         // Recording is too quiet or silent - no valid performance detected
-        print('Warning: Recording energy too low (RMS: ${rmsEnergy.toStringAsFixed(6)}). '
+        print('WARNING: Recording energy too low (RMS: ${rmsEnergy.toStringAsFixed(6)}). '
             'Please tap louder or check microphone.');
+        print('DEBUG: ================================================');
         return [];
       }
 
@@ -49,14 +57,17 @@ class RhythmAnalyzer {
       final onsetTimes = _detectOnsets(samples);
       print('DEBUG: Detected ${onsetTimes.length} onsets');
       if (onsetTimes.isNotEmpty) {
-        print('DEBUG: First few onset times: ${onsetTimes.take(5).toList()}');
+        print('DEBUG: First few onset times: ${onsetTimes.take(10).map((t) => t.toStringAsFixed(3)).toList()}');
       }
 
       // Generate expected beat times
       final expectedBeats = _generateExpectedBeats(bpm, durationSeconds);
+      print('DEBUG: Expected ${expectedBeats.length} beats for ${durationSeconds}s at $bpm BPM');
 
       // Match onsets to nearest expected beats
       final tapEvents = _matchOnsetsToBeats(onsetTimes, expectedBeats);
+      print('DEBUG: Matched ${tapEvents.length} beats (${((tapEvents.length / expectedBeats.length) * 100).toStringAsFixed(1)}% of expected)');
+      print('DEBUG: ================================================');
 
       // Check for metronome bleed (extremely high consistency)
       // Machine-generated audio loopback (bleed) has near-zero variance (< 1ms).
@@ -83,10 +94,7 @@ class RhythmAnalyzer {
 
     double sumSquares = 0.0;
     for (final sample in samples) {
-      // Ignore samples below noise floor
-      if (sample.abs() > noiseFloor) {
-        sumSquares += sample * sample;
-      }
+      sumSquares += sample * sample;
     }
 
     return sqrt(sumSquares / samples.length);
