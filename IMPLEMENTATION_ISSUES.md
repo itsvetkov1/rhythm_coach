@@ -8,6 +8,7 @@ This document identifies critical issues, bugs, and discrepancies between the de
 
 ### 1. **Metronome Clicks Recorded with User Performance**
 **Severity**: CRITICAL
+**Status**: FIXED (Workaround)
 **Impact**: Ruins onset detection accuracy
 
 **Problem**:
@@ -32,11 +33,10 @@ The metronome sound plays through speakers → microphone picks it up → record
 - Metronome should NOT be in the recorded audio
 - Only user's performance should be recorded
 
-**Possible Solutions**:
-1. Use headphones for metronome (requires user instruction)
-2. Use haptic feedback (vibration) instead of audio metronome
-3. Subtract known metronome click times from onset detection results
-4. Use echo cancellation techniques (complex)
+**Solution Implemented**:
+- Added mandatory "Connect Headphones" warning dialog on startup
+- Relies on Android OS automatic audio routing to separate output (headphones) from input (built-in mic)
+- Added `MetronomeBleedException` in analyzer to detect if bleed still occurs (consistency < 3ms)
 
 ---
 
@@ -74,6 +74,7 @@ await _recorder!.startRecorder(
 
 ### 3. **Improper WAV File Parsing**
 **Severity**: HIGH
+**Status**: FIXED
 **Impact**: Incorrect audio data analysis, potential crashes
 
 **Problem**:
@@ -87,7 +88,7 @@ await _recorder!.startRecorder(
 
 **Current Code**:
 ```dart
-final startIndex = min(1024, bytes.length); // Skip WAV header
+final startIndex = min(44, bytes.length); // Fixed: Skip actual WAV header (44 bytes)
 ```
 
 **Why It's Wrong**:
@@ -352,6 +353,7 @@ try {
 
 ### 10. **No Spectral Flux Normalization**
 **Severity**: MEDIUM
+**Status**: FIXED
 **Impact**: Onset detection threshold unreliable across different volumes
 
 **Problem**:
@@ -365,9 +367,9 @@ try {
 
 **Current Code**:
 ```dart
-if (flux > onsetThreshold) {  // Fixed threshold
-  onsets.add(timeInSeconds);
-}
+// Normalized flux implemented
+final normalizedFlux = previousEnergy > 0 ? flux / (previousEnergy + 0.0001) : 0.0;
+if (normalizedFlux > onsetThreshold) { ... }
 ```
 
 **Problem Scenario**:
@@ -380,14 +382,9 @@ if (flux > onsetThreshold) {  // Fixed threshold
 - Or normalize flux by previous frame's total energy
 - Or use relative flux (flux / mean flux over last N frames)
 
-**Solution**:
-```dart
-// Normalize by previous frame energy
-final normalizedFlux = flux / (previousEnergy + epsilon);
-if (normalizedFlux > relativeThreshold) {
-  onsets.add(timeInSeconds);
-}
-```
+**Solution Implemented**:
+- Implemented normalized spectral flux (flux / previousEnergy)
+- Updated thresholds: onsetThreshold = 0.15, minSignalEnergy = 0.0001
 
 ---
 
@@ -592,6 +589,7 @@ Future<void> stopMetronome() async {
 
 ### 19. **No Recovery from Partial Recording**
 **Severity**: LOW
+**Status**: FIXED
 **Impact**: User must start over if they stop early
 
 **Problem**:
@@ -603,11 +601,10 @@ Future<void> stopMetronome() async {
 
 **Current**:
 ```dart
+// Implemented stopSession() to process results instead of reset
 Future<void> stopSession() async {
   if (_state == PracticeState.recording) {
-    await _audioService.stopRecording();
-    await _audioService.stopMetronome();
-    reset();  // ← Discards everything
+    await _finishRecording(manualStop: true);
   }
 }
 ```

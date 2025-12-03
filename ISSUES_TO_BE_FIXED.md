@@ -8,31 +8,30 @@ For detailed analysis, see `IMPLEMENTATION_ISSUES.md`.
 
 ## 🔴 CRITICAL (Must Fix - App Won't Work Correctly)
 
-### ✗ Issue #1: Metronome Clicks Recorded with User Performance
-**Status**: Not Fixed
+### ✓ Issue #1: Metronome Clicks Recorded with User Performance
+**Status**: Fixed (Workaround Implemented)
 **Priority**: CRITICAL
 **Impact**: Breaks rhythm detection - metronome clicks detected as user beats
 
 **Location**: `ai_rhythm_coach/lib/controllers/practice_controller.dart:53-55`
 
-**Fix Required**:
-- Prevent metronome from being recorded in audio file
-- Options: headphones-only mode, haptic feedback, or subtract known click times
+**Fix Implemented**:
+- Added mandatory "Connect Headphones" warning dialog on startup
+- Relies on Android OS automatic audio routing to separate output (headphones) from input (built-in mic)
+- Added `MetronomeBleedException` in analyzer to detect if bleed still occurs (consistency < 3ms)
 
 ---
 
-### ✗ Issue #3: Improper WAV File Parsing
-**Status**: Not Fixed
+### ✓ Issue #3: Improper WAV File Parsing
+**Status**: Fixed
 **Priority**: CRITICAL
 **Impact**: Skips 1024 bytes instead of 44-byte header, reads garbage data
 
 **Location**: `ai_rhythm_coach/lib/services/rhythm_analyzer.dart:62`
 
-**Fix Required**:
+**Fix Implemented**:
 ```dart
-// Change from:
-final startIndex = min(1024, bytes.length);
-// To:
+// Changed to:
 final startIndex = min(44, bytes.length);
 ```
 
@@ -144,16 +143,16 @@ await Future.wait([
 
 ---
 
-### ✗ Issue #10: No Spectral Flux Normalization
-**Status**: Not Fixed
+### ✓ Issue #10: No Spectral Flux Normalization
+**Status**: Fixed
 **Priority**: MEDIUM
 **Impact**: Fixed threshold fails for different recording volumes
 
 **Location**: `ai_rhythm_coach/lib/services/rhythm_analyzer.dart:109-120`
 
-**Fix Required**:
-- Use adaptive threshold based on signal energy
-- Normalize flux by previous frame energy
+**Fix Implemented**:
+- Implemented normalized spectral flux (flux / previousEnergy)
+- Updated thresholds: onsetThreshold = 0.15, minSignalEnergy = 0.0001
 
 ---
 
@@ -223,10 +222,10 @@ await Future.wait([
 **Priority**: LOW
 **Fix**: Stop player explicitly before cancelling timer
 
-### ✗ Issue #19: No Recovery from Partial Recording
-**Status**: Not Fixed
+### ✓ Issue #19: No Recovery from Partial Recording
+**Status**: Fixed
 **Priority**: LOW
-**Fix**: Offer to analyze partial recording when user stops early
+**Fix**: Implemented "Stop & Analyze" feature allowing users to end session early and still get results.
 
 ### ✗ Issue #20: Shared Player Instance Issues
 **Status**: Not Fixed
@@ -285,9 +284,10 @@ await Future.wait([
 
 ---
 
-**Last Updated**: 2025-11-26
+**Last Updated**: 2025-12-04
 **Total Issues**: 24
-**Critical**: 3
+**Fixed**: 4
+**Critical**: 1 (Remaining)
 **High**: 4
-**Medium**: 6
-**Low**: 11
+**Medium**: 4
+**Low**: 10
