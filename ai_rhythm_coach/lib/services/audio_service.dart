@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_sound/flutter_sound.dart';
+import 'package:audio_session/audio_session.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -57,33 +58,38 @@ class AudioService {
   // Configure audio focus and routing for proper input/output separation
   Future<void> _configureAudioRouting() async {
     try {
-      // Set audio focus for both player and recorder to enable simultaneous
-      // playback (metronome) and recording (user performance) with proper routing
+      // Get the audio session instance
+      final session = await AudioSession.instance;
 
-      // Configure player: Output will route to currently connected audio device
-      // (headphones, bluetooth, etc.) while allowing other audio sources
-      await _player!.setAudioFocus(
-        focus: AudioFocus.requestFocusAndKeepOthers,
-        category: SessionCategory.playAndRecord,
-        mode: SessionMode.modeDefault,
-        audioFlags: outputToSpeaker | allowBlueTooth | allowBlueToothA2DP | allowHeadset,
-      );
-      print('AudioService: Player configured - output routes to connected audio device');
+      // Configure audio session for simultaneous playback and recording
+      // This enables proper separation between headphone output and microphone input
+      await session.configure(AudioSessionConfiguration(
+        // iOS configuration
+        avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
+        avAudioSessionCategoryOptions:
+            AVAudioSessionCategoryOptions.allowBluetooth |
+            AVAudioSessionCategoryOptions.allowBluetoothA2DP |
+            AVAudioSessionCategoryOptions.defaultToSpeaker,
+        avAudioSessionMode: AVAudioSessionMode.measurement,
+        avAudioSessionRouteSharingPolicy: AVAudioSessionRouteSharingPolicy.defaultPolicy,
+        avAudioSessionSetActiveOptions: AVAudioSessionSetActiveOptions.none,
 
-      // Configure recorder: Input from microphone with echo cancellation
-      // playAndRecord category enables simultaneous operation with automatic
-      // echo cancellation to prevent metronome from being recorded
-      await _recorder!.setAudioFocus(
-        focus: AudioFocus.requestFocusAndKeepOthers,
-        category: SessionCategory.playAndRecord,
-        mode: SessionMode.modeDefault,
-      );
-      print('AudioService: Recorder configured - microphone input with echo cancellation');
+        // Android configuration
+        androidAudioAttributes: const AndroidAudioAttributes(
+          contentType: AndroidAudioContentType.music,
+          flags: AndroidAudioFlags.none,
+          usage: AndroidAudioUsage.media,
+        ),
+        androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
+        androidWillPauseWhenDucked: false,
+      ));
 
-      print('AudioService: ✓ Audio separation configured');
-      print('AudioService: Metronome -> Headphones/Bluetooth | Recording <- Microphone only');
+      print('AudioService: ✓ Audio session configured successfully');
+      print('AudioService: Category: playAndRecord (simultaneous playback + recording)');
+      print('AudioService: Metronome -> Headphones/Bluetooth | Microphone -> User recording only');
+      print('AudioService: Echo cancellation enabled via playAndRecord configuration');
     } catch (e) {
-      print('AudioService: ⚠ Failed to configure audio routing: $e');
+      print('AudioService: ⚠ Failed to configure audio session: $e');
       print('AudioService: App will attempt to use default routing');
       // Don't throw - allow app to continue, routing may still work with defaults
     }

@@ -36,6 +36,7 @@ dependencies:
 
   # Audio recording and playback
   flutter_sound: ^9.2.13
+  audio_session: ^0.1.13
   permission_handler: ^11.0.0
 
   # FFT for rhythm analysis
