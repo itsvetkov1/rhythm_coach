@@ -11,6 +11,10 @@ jobs:
   build:
     name: Build Debug APK
     runs-on: ubuntu-latest
+    # Skip build for documentation-only commits
+    if: |
+      !startsWith(github.event.head_commit.message, '[docs]') &&
+      !startsWith(github.event.head_commit.message, '[skip ci]')
 
     steps:
       - name: Checkout code

@@ -270,3 +270,28 @@ Raw Audio (AAC) → PCM Samples → FFT Windows → Spectral Flux
 - **API key security:** Never commit config.dart with real API keys
 - **File cleanup:** Ensure old audio files deleted when sessions removed
 - **State synchronization:** Always call notifyListeners() after state changes in controllers
+
+## Git and CI/CD Best Practices
+
+**Documentation-Only Commits:**
+- **DO NOT trigger builds** for commits that only update documentation files
+- Documentation files include: `*.md` files (README.md, CLAUDE.md, test plans, etc.)
+- Use commit message prefix `[docs]` or `[skip ci]` for documentation-only changes
+- Example: `git commit -m "[docs] Update testing documentation"`
+- This saves CI/CD resources and build time
+- Only trigger builds when actual code changes (`.dart`, `.yaml`, Android/iOS config files)
+
+**When to Skip CI:**
+- Documentation updates (`.md` files)
+- Comment-only changes in code
+- README or guide updates
+- Test plan documentation
+- Architecture diagrams or design docs
+
+**When CI Must Run:**
+- Any `.dart` file changes
+- `pubspec.yaml` dependency changes
+- Android manifest or iOS config changes
+- Asset file additions/modifications
+- Test file changes
+- Build script modifications
