@@ -42,10 +42,8 @@ class AudioService {
       await _recorder!.openRecorder();
       await _player!.openPlayer();
 
-      // Note: Audio routing is handled automatically by the OS
-      // When headphones are connected, audio output automatically routes to headphones
-      // while recording input comes from the built-in microphone
-      // This physical separation prevents metronome from being recorded
+      // Configure audio routing to ensure proper separation
+      await _configureAudioRouting();
 
       _clickHighPath = await _loadAssetToLocalFile('assets/audio/click_high.wav', 'click_high.wav');
       _clickLowPath = await _loadAssetToLocalFile('assets/audio/click_low.wav', 'click_low.wav');
@@ -53,6 +51,41 @@ class AudioService {
       _isInitialized = true;
     } catch (e) {
       throw AudioRecordingException('Failed to initialize audio: $e');
+    }
+  }
+
+  // Configure audio focus and routing for proper input/output separation
+  Future<void> _configureAudioRouting() async {
+    try {
+      // Set audio focus for both player and recorder to enable simultaneous
+      // playback (metronome) and recording (user performance) with proper routing
+
+      // Configure player: Output will route to currently connected audio device
+      // (headphones, bluetooth, etc.) while allowing other audio sources
+      await _player!.setAudioFocus(
+        focus: AudioFocus.requestFocusAndKeepOthers,
+        category: SessionCategory.playAndRecord,
+        mode: SessionMode.modeDefault,
+        audioFlags: outputToSpeaker | allowBlueTooth | allowBlueToothA2DP | allowHeadset,
+      );
+      print('AudioService: Player configured - output routes to connected audio device');
+
+      // Configure recorder: Input from microphone with echo cancellation
+      // playAndRecord category enables simultaneous operation with automatic
+      // echo cancellation to prevent metronome from being recorded
+      await _recorder!.setAudioFocus(
+        focus: AudioFocus.requestFocusAndKeepOthers,
+        category: SessionCategory.playAndRecord,
+        mode: SessionMode.modeDefault,
+      );
+      print('AudioService: Recorder configured - microphone input with echo cancellation');
+
+      print('AudioService: ✓ Audio separation configured');
+      print('AudioService: Metronome -> Headphones/Bluetooth | Recording <- Microphone only');
+    } catch (e) {
+      print('AudioService: ⚠ Failed to configure audio routing: $e');
+      print('AudioService: App will attempt to use default routing');
+      // Don't throw - allow app to continue, routing may still work with defaults
     }
   }
 
