@@ -29,11 +29,14 @@ The metronome was playing through device speakers while recording from the micro
 ### 2. Audio Routing Configuration
 **File**: `lib/services/audio_service.dart`
 
+**Added**: `_configureAudioRouting()` method
+
 **Strategy**:
-- Relies on Android OS automatic audio routing
-- When headphones are connected, OS automatically routes audio output to headphones
+- Uses `audio_session` package (added as dependency)
+- Sets audio session to `playAndRecord` mode for simultaneous recording and playback
+- Configures audio focus with `AndroidAudioFocusGainType.gain`
+- Allows OS to naturally route audio to connected headphones
 - Recording always captures from built-in microphone (not headphone mic)
-- Explicit `_configureAudioRouting()` method was removed in favor of OS default behavior to ensure compatibility with `flutter_sound` plugin versions.
 
 **How it prevents the issue**:
 1. When headphones are connected, OS automatically routes audio OUTPUT to headphones
