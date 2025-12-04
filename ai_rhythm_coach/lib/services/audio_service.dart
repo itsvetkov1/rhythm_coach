@@ -62,26 +62,24 @@ class AudioService {
       final session = await AudioSession.instance;
 
       // Configure audio session for simultaneous playback and recording
-      // This enables proper separation between headphone output and microphone input
+      // We use a custom configuration based on speech/game requirements to ensure
+      // the microphone is not muted while audio is playing.
       await session.configure(AudioSessionConfiguration(
-        // iOS configuration
         avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
         avAudioSessionCategoryOptions:
             AVAudioSessionCategoryOptions.allowBluetooth |
             AVAudioSessionCategoryOptions.allowBluetoothA2dp |
             AVAudioSessionCategoryOptions.defaultToSpeaker,
-        avAudioSessionMode: AVAudioSessionMode.measurement,
+        avAudioSessionMode: AVAudioSessionMode.defaultMode,
         avAudioSessionRouteSharingPolicy: AVAudioSessionRouteSharingPolicy.defaultPolicy,
         avAudioSessionSetActiveOptions: AVAudioSessionSetActiveOptions.none,
-
-        // Android configuration
         androidAudioAttributes: const AndroidAudioAttributes(
           contentType: AndroidAudioContentType.music,
           flags: AndroidAudioFlags.none,
           usage: AndroidAudioUsage.media,
         ),
         androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
-        androidWillPauseWhenDucked: false,
+        androidWillPauseWhenDucked: true,
       ));
 
       print('AudioService: ✓ Audio session configured successfully');

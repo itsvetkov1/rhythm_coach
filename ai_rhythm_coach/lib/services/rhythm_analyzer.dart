@@ -166,8 +166,11 @@ class RhythmAnalyzer {
       }
 
       if (dataOffset == -1) {
-        print('DEBUG: Could not find data chunk in WAV file');
-        return [];
+        print('DEBUG: Could not find data chunk in WAV file. Attempting fallback parsing.');
+        // Fallback: Assume standard header size of 44 bytes if parsing fails
+        // This handles cases where the WAV header might be non-standard or the parser fails
+        dataOffset = 44;
+        dataSize = bytes.length - 44;
       }
 
       print('DEBUG: Data chunk found at offset $dataOffset, size $dataSize bytes');
