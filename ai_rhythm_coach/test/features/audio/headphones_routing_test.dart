@@ -345,6 +345,8 @@ void main() {
       // Assert
       expect(mockAudioService.initializeCalled, isTrue);
       expect(mockAudioService.configureAudioRoutingCalled, isTrue);
+
+      controller.dispose();
     });
   });
 
@@ -352,6 +354,12 @@ void main() {
     testWidgets(
         'Complete flow: Warning dialog -> Audio routing -> Recording starts',
         (WidgetTester tester) async {
+      // Set screen size to ensure all widgets are visible
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
       // Arrange
       final mockAudioService = MockAudioService();
       final controller = PracticeController(
@@ -402,6 +410,12 @@ void main() {
     testWidgets(
         'Verify audio routing prevents metronome from microphone recording',
         (WidgetTester tester) async {
+      // Set screen size to ensure all widgets are visible
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
       // This is a unit test that verifies the architectural separation
       // In a real device test, this would verify:
       // 1. Metronome audio output goes to headphones/wired output

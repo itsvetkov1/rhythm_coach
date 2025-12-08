@@ -36,6 +36,12 @@ void main() {
     await tester.pumpWidget(MyApp(prefs: prefs));
     await tester.pumpAndSettle();
 
+    // Dismiss headphones warning if present
+    if (find.text('Headphones Connected').evaluate().isNotEmpty) {
+      await tester.tap(find.text('Headphones Connected'));
+      await tester.pumpAndSettle();
+    }
+
     // Verify default BPM is 120
     expect(find.text('120'), findsOneWidget);
 
