@@ -72,7 +72,8 @@ class RhythmAnalyzer {
       // Check for metronome bleed (extremely high consistency)
       // Machine-generated audio loopback (bleed) has near-zero variance (< 1ms).
       // Human playing, even professional, rarely achieves < 5-10ms consistency over 60s.
-      if (tapEvents.isNotEmpty) {
+      // Only check if we have enough data points (at least 3 beats)
+      if (tapEvents.length > 2) {
         final consistency = calculateConsistency(tapEvents);
         if (consistency < 3.0) {
           // It's likely the microphone hearing the metronome speaker
@@ -123,54 +124,58 @@ class RhythmAnalyzer {
 
       // Verify RIFF header
       final riffHeader = String.fromCharCodes(bytes.sublist(0, 4));
-      if (riffHeader != 'RIFF') {
-        print('DEBUG: Not a valid WAV file (missing RIFF header)');
-        return [];
-      }
-
-      // Verify WAVE format
-      final waveFormat = String.fromCharCodes(bytes.sublist(8, 12));
-      if (waveFormat != 'WAVE') {
-        print('DEBUG: Not a valid WAV file (missing WAVE format)');
-        return [];
-      }
-
-      // Find the 'data' chunk by searching through the file
-      // WAV files can have multiple chunks (fmt, fact, LIST, INFO, data, etc.)
       int dataOffset = -1;
       int dataSize = 0;
-      int offset = 12; // Start after RIFF header
 
-      while (offset < bytes.length - 8) {
-        final chunkId = String.fromCharCodes(bytes.sublist(offset, offset + 4));
-        final chunkSize = bytes[offset + 4] |
-                         (bytes[offset + 5] << 8) |
-                         (bytes[offset + 6] << 16) |
-                         (bytes[offset + 7] << 24);
-
-        print('DEBUG: Found chunk "$chunkId" at offset $offset, size $chunkSize bytes');
-
-        if (chunkId == 'data') {
-          dataOffset = offset + 8; // Skip chunk header
-          dataSize = chunkSize;
-          break;
+      if (riffHeader != 'RIFF') {
+        print('DEBUG: Missing RIFF header. Attempting to parse as raw PCM data.');
+        // Assume raw PCM (16-bit, Mono, 44.1kHz)
+        // Skip 0 bytes header
+        dataOffset = 0;
+        dataSize = bytes.length;
+      } else {
+        // Verify WAVE format
+        final waveFormat = String.fromCharCodes(bytes.sublist(8, 12));
+        if (waveFormat != 'WAVE') {
+          print('DEBUG: Not a valid WAV file (missing WAVE format)');
+          return [];
         }
 
-        // Move to next chunk
-        offset += 8 + chunkSize;
+        // Find the 'data' chunk by searching through the file
+        // WAV files can have multiple chunks (fmt, fact, LIST, INFO, data, etc.)
+        int offset = 12; // Start after RIFF header
 
-        // WAV chunks are word-aligned (even-byte boundary)
-        if (chunkSize % 2 == 1) {
-          offset += 1;
+        while (offset < bytes.length - 8) {
+          final chunkId = String.fromCharCodes(bytes.sublist(offset, offset + 4));
+          final chunkSize = bytes[offset + 4] |
+                           (bytes[offset + 5] << 8) |
+                           (bytes[offset + 6] << 16) |
+                           (bytes[offset + 7] << 24);
+
+          print('DEBUG: Found chunk "$chunkId" at offset $offset, size $chunkSize bytes');
+
+          if (chunkId == 'data') {
+            dataOffset = offset + 8; // Skip chunk header
+            dataSize = chunkSize;
+            break;
+          }
+
+          // Move to next chunk
+          offset += 8 + chunkSize;
+
+          // WAV chunks are word-aligned (even-byte boundary)
+          if (chunkSize % 2 == 1) {
+            offset += 1;
+          }
         }
-      }
 
-      if (dataOffset == -1) {
-        print('DEBUG: Could not find data chunk in WAV file. Attempting fallback parsing.');
-        // Fallback: Assume standard header size of 44 bytes if parsing fails
-        // This handles cases where the WAV header might be non-standard or the parser fails
-        dataOffset = 44;
-        dataSize = bytes.length - 44;
+        if (dataOffset == -1) {
+          print('DEBUG: Could not find data chunk in WAV file. Attempting fallback parsing.');
+          // Fallback: Assume standard header size of 44 bytes if parsing fails
+          // This handles cases where the WAV header might be non-standard or the parser fails
+          dataOffset = 44;
+          dataSize = bytes.length - 44;
+        }
       }
 
       print('DEBUG: Data chunk found at offset $dataOffset, size $dataSize bytes');
