@@ -23,6 +23,8 @@ class RhythmAnalyzer {
     required String audioFilePath,
     required int bpm,
     required int durationSeconds,
+    int latencyOffsetMs = 0,
+    bool checkBleed = true,
   }) async {
     try {
       // Load audio samples
@@ -54,10 +56,17 @@ class RhythmAnalyzer {
       }
 
       // Detect onset times (in seconds)
-      final onsetTimes = _detectOnsets(samples);
-      print('DEBUG: Detected ${onsetTimes.length} onsets');
+      // Detect onset times (in seconds)
+      final rawOnsetTimes = _detectOnsets(samples);
+      print('DEBUG: Detected ${rawOnsetTimes.length} raw onsets');
+      
+      // Apply latency compensation
+      final double latencySeconds = latencyOffsetMs / 1000.0;
+      final onsetTimes = rawOnsetTimes.map((t) => t - latencySeconds).toList();
+      
       if (onsetTimes.isNotEmpty) {
-        print('DEBUG: First few onset times: ${onsetTimes.take(10).map((t) => t.toStringAsFixed(3)).toList()}');
+        print('DEBUG: First few onset times (corrected): ${onsetTimes.take(10).map((t) => t.toStringAsFixed(3)).toList()}');
+        print('DEBUG: Applied latency offset: ${latencyOffsetMs}ms');
       }
 
       // Generate expected beat times
@@ -72,7 +81,10 @@ class RhythmAnalyzer {
       // Check for metronome bleed (extremely high consistency)
       // Machine-generated audio loopback (bleed) has near-zero variance (< 1ms).
       // Human playing, even professional, rarely achieves < 5-10ms consistency over 60s.
-      if (tapEvents.isNotEmpty) {
+      // Check for metronome bleed (extremely high consistency)
+      // Machine-generated audio loopback (bleed) has near-zero variance (< 1ms).
+      // Human playing, even professional, rarely achieves < 5-10ms consistency over 60s.
+      if (checkBleed && tapEvents.isNotEmpty) {
         final consistency = calculateConsistency(tapEvents);
         if (consistency < 3.0) {
           // It's likely the microphone hearing the metronome speaker
@@ -248,7 +260,8 @@ class RhythmAnalyzer {
 
         // If normalized flux exceeds threshold, mark as onset
         if (normalizedFlux > onsetThreshold) {
-          final timeInSeconds = i / sampleRate;
+          // Use center of the window for more accurate timing
+          final timeInSeconds = (i + fftSize / 2) / sampleRate;
           // Avoid marking onsets too close together (minimum 50ms apart)
           if (onsets.isEmpty || (timeInSeconds - onsets.last) > 0.05) {
             onsets.add(timeInSeconds);
@@ -341,6 +354,14 @@ class RhythmAnalyzer {
     if (tapEvents.isEmpty) return 0.0;
 
     final sum = tapEvents.fold<double>(0.0, (sum, event) => sum + event.error.abs());
+    return sum / tapEvents.length;
+  }
+
+  // Calculate mean signed error (useful for calibration)
+  static double calculateMeanSignedError(List<TapEvent> tapEvents) {
+    if (tapEvents.isEmpty) return 0.0;
+
+    final sum = tapEvents.fold<double>(0.0, (sum, event) => sum + event.error);
     return sum / tapEvents.length;
   }
 

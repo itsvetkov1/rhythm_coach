@@ -6,7 +6,9 @@ import '../models/session.dart';
 import '../services/audio_service.dart';
 import '../services/rhythm_analyzer.dart';
 import '../services/ai_coaching_service.dart';
+
 import '../services/session_manager.dart';
+import '../services/calibration_service.dart';
 
 class PracticeController extends ChangeNotifier {
   PracticeState _state = PracticeState.idle;
@@ -21,17 +23,21 @@ class PracticeController extends ChangeNotifier {
   final AudioService _audioService;
   final RhythmAnalyzer _rhythmAnalyzer;
   final AICoachingService _aiCoachingService;
+  final AICoachingService _aiCoachingService;
   final SessionManager _sessionManager;
+  final CalibrationService _calibrationService;
 
   PracticeController({
     required AudioService audioService,
     required RhythmAnalyzer rhythmAnalyzer,
     required AICoachingService aiCoachingService,
     required SessionManager sessionManager,
+    required CalibrationService calibrationService,
   })  : _audioService = audioService,
         _rhythmAnalyzer = rhythmAnalyzer,
         _aiCoachingService = aiCoachingService,
-        _sessionManager = sessionManager;
+        _sessionManager = sessionManager,
+        _calibrationService = calibrationService;
 
   // Getters
   PracticeState get state => _state;
@@ -94,16 +100,28 @@ class PracticeController extends ChangeNotifier {
     }
   }
 
+      // Process results
+      await _processSession(audioFilePath, actualDuration);
+    } catch (e) {
+      _handleError(e);
+    }
+  }
+
   // Process recorded audio to generate coaching
   Future<void> _processSession(String audioFilePath, int actualDuration) async {
     try {
       _setState(PracticeState.processing);
+
+      // Get latency offset
+      final latency = await _calibrationService.getLatency();
+      print('Applying latency offset: ${latency}ms');
 
       // Analyze rhythm
       final tapEvents = await _rhythmAnalyzer.analyzeAudio(
         audioFilePath: audioFilePath,
         bpm: _bpm,
         durationSeconds: actualDuration,
+        latencyOffsetMs: latency,
       );
 
       // Check if we have enough tap events

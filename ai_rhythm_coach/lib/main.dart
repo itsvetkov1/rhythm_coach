@@ -7,7 +7,9 @@ import 'controllers/practice_controller.dart';
 import 'services/audio_service.dart';
 import 'services/rhythm_analyzer.dart';
 import 'services/ai_coaching_service.dart';
+
 import 'services/session_manager.dart';
+import 'services/calibration_service.dart';
 import 'screens/practice_screen.dart';
 
 void main() async {
@@ -42,6 +44,10 @@ class MyApp extends StatelessWidget {
         Provider<SessionManager>(
           create: (_) => SessionManager(prefs),
         ),
+        Provider<CalibrationService>(
+          create: (_) => CalibrationService(),
+          dispose: (_, service) => service.dispose(),
+        ),
 
         // Controller Provider
         ChangeNotifierProvider<PracticeController>(
@@ -49,7 +55,9 @@ class MyApp extends StatelessWidget {
             audioService: context.read<AudioService>(),
             rhythmAnalyzer: context.read<RhythmAnalyzer>(),
             aiCoachingService: context.read<AICoachingService>(),
+            aiCoachingService: context.read<AICoachingService>(),
             sessionManager: context.read<SessionManager>(),
+            calibrationService: context.read<CalibrationService>(),
           ),
         ),
       ],

@@ -7,6 +7,7 @@ import '../widgets/practice_state_ui.dart';
 import '../widgets/bpm_controls.dart';
 import '../widgets/practice_action_button.dart';
 import '../widgets/headphones_warning_dialog.dart';
+import 'calibration_screen.dart';
 
 class PracticeScreen extends StatefulWidget {
   const PracticeScreen({super.key});
@@ -40,6 +41,20 @@ class _PracticeScreenState extends State<PracticeScreen> {
       appBar: AppBar(
         title: const Text('AI Rhythm Coach'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: 'Audio Calibration',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const CalibrationScreen(),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: Consumer<PracticeController>(
         builder: (context, controller, child) {
