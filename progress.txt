@@ -8,7 +8,10 @@
 - Debug logging should use StringBuffer for efficient string concatenation
 - path_provider is already available in pubspec.yaml for file operations
 - The _detectOnsets method now returns List<Map<String, double>> with 'time' and 'confidence' keys
-- Flutter analyze shows 103 pre-existing lint warnings (avoid_print) but no errors
+- Flutter analyze shows 113 lint warnings (avoid_print) but no errors
+- WAV file format: RIFF header, chunks (fmt, data), little-endian encoding
+- AudioFixtureLoader utility class available for loading test audio files in tests
+- Test audio fixtures located in test/fixtures/audio/ directory
 
 ---
 
@@ -38,5 +41,36 @@ Learnings for future iterations:
 - Confidence scores (spectral flux values) will be useful for tuning thresholds
 - The first 20 frames of logging provides good insight without overwhelming output
 - Future tasks should use this debug mode when testing new onset detection algorithms
+
+---
+
+## Iteration 2 - Create synthetic test audio files
+- Implemented US-002 from PRD.md
+- Created tool/generate_test_audio.dart script to generate three test fixtures:
+  - test_silence.wav: 5 seconds of digital silence (all zero samples)
+  - test_white_noise.wav: 5 seconds of low-level white noise (RMS ~0.05)
+  - test_drum_hits.wav: 8 impulse hits at 120 BPM with exponential decay
+- All files generated as 44.1kHz, mono, PCM 16-bit WAV with proper headers
+- Created AudioFixtureLoader utility class (test/test_utils/audio_fixture_loader.dart)
+  - Parses WAV file format and extracts PCM samples
+  - Normalizes int16 samples to Float64List (-1.0 to 1.0 range)
+  - Includes comprehensive tests verifying fixture characteristics
+- All tests pass, typecheck passes (113 lint warnings, no errors)
+
+Files changed:
+- tool/generate_test_audio.dart (new - audio generation script)
+- test/fixtures/audio/test_silence.wav (new - 431KB)
+- test/fixtures/audio/test_white_noise.wav (new - 431KB)
+- test/fixtures/audio/test_drum_hits.wav (new - 388KB)
+- test/test_utils/audio_fixture_loader.dart (new - WAV parser utility)
+- test/test_utils/audio_fixture_loader_test.dart (new - verification tests)
+- PRD.md (marked US-002 complete)
+
+Learnings for future iterations:
+- WAV file format: RIFF header, then chunks (fmt, data), little-endian encoding
+- Dart requires 'dart:math' import for sqrt() function
+- Const expressions cannot include method calls like .round()
+- The test audio generator creates realistic drum hits with multiple frequency components
+- AudioFixtureLoader can be used in all future onset detection tests
 
 ---
