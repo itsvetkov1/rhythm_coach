@@ -33,13 +33,13 @@ This PRD outlines a complete rework of the onset detection algorithm to achieve 
 **Description:** As a developer, I need synthetic audio samples (silence, noise, drum hits) so I can write automated tests.
 
 **Acceptance Criteria:**
-- [ ] Generate `test_silence.wav`: 5 seconds of digital silence (all zeros)
-- [ ] Generate `test_white_noise.wav`: 5 seconds of low-level white noise (RMS ~0.05)
-- [ ] Generate `test_drum_hits.wav`: 8 clean impulse sounds at 120 BPM
-- [ ] All files are 44.1kHz, mono, PCM 16-bit WAV format
-- [ ] Save files to `test/fixtures/audio/` directory
-- [ ] Add helper function `loadTestAudioFixture(filename)` in test utils
-- [ ] Typecheck passes
+- [x] Generate `test_silence.wav`: 5 seconds of digital silence (all zeros)
+- [x] Generate `test_white_noise.wav`: 5 seconds of low-level white noise (RMS ~0.05)
+- [x] Generate `test_drum_hits.wav`: 8 clean impulse sounds at 120 BPM
+- [x] All files are 44.1kHz, mono, PCM 16-bit WAV format
+- [x] Save files to `test/fixtures/audio/` directory
+- [x] Add helper function `loadTestAudioFixture(filename)` in test utils
+- [x] Typecheck passes
 
 ### US-003: Add automated tests for false positive prevention
 **Description:** As a developer, I want automated tests that fail when false positives occur so I catch regressions.
