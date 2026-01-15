@@ -101,13 +101,13 @@ This PRD outlines a complete rework of the onset detection algorithm to achieve 
 **Description:** As a system, I need peak picking that prevents multiple detections from the same drum hit.
 
 **Acceptance Criteria:**
-- [ ] Add `_pickPeaks()` method that filters onset candidates
-- [ ] Require minimum 50ms between consecutive onsets (prevents doubles)
-- [ ] Only keep local maxima (spectral flux must decrease after peak)
-- [ ] Require peak to be 1.5x threshold (not just barely above)
-- [ ] Sort peaks by strength and keep only strongest candidates
-- [ ] Add unit test with synthetic peaks at various intervals
-- [ ] Typecheck passes
+- [x] Add `_pickPeaks()` method that filters onset candidates
+- [x] Require minimum 50ms between consecutive onsets (prevents doubles)
+- [x] Only keep local maxima (spectral flux must decrease after peak)
+- [x] Require peak to be 1.5x threshold (not just barely above)
+- [x] Sort peaks by strength and keep only strongest candidates
+- [x] Add unit test with synthetic peaks at various intervals
+- [x] Typecheck passes
 
 ### US-009: Refactor analyzeRecording to use new pipeline
 **Description:** As a developer, I need to integrate all new components into a coherent onset detection pipeline.

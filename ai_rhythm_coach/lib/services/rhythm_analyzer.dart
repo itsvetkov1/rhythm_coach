@@ -229,6 +229,79 @@ class RhythmAnalyzer {
     return finalThreshold;
   }
 
+  // Pick peaks from spectral flux values with temporal constraints
+  // Filters onset candidates to prevent false positives and duplicates
+  //
+  // Parameters:
+  //   fluxValues: List of spectral flux values over time
+  //   threshold: Minimum flux value to consider as candidate
+  //   minPeakSeparationMs: Minimum time between consecutive peaks (default 50ms)
+  //   peakStrengthMultiplier: Peak must be this many times above threshold (default 1.5)
+  //
+  // Returns: List of onset times (in seconds) that pass all peak picking criteria
+  List<double> _pickPeaks(
+    List<double> fluxValues, {
+    required double threshold,
+    double minPeakSeparationMs = 50.0,
+    double peakStrengthMultiplier = 1.5,
+  }) {
+    final peaks = <Map<String, double>>[];
+    final strengthThreshold = threshold * peakStrengthMultiplier;
+
+    // Find local maxima that exceed the strength threshold
+    for (int i = 1; i < fluxValues.length - 1; i++) {
+      final current = fluxValues[i];
+      final previous = fluxValues[i - 1];
+      final next = fluxValues[i + 1];
+
+      // Check if this is a local maximum
+      final isLocalMax = current > previous && current > next;
+
+      // Check if peak exceeds strength threshold
+      final isStrongEnough = current >= strengthThreshold;
+
+      if (isLocalMax && isStrongEnough) {
+        // Calculate time in seconds for this peak
+        // Each frame is separated by hopSize samples
+        final timeInSeconds = (i * hopSize) / sampleRate;
+
+        peaks.add({
+          'time': timeInSeconds,
+          'strength': current,
+        });
+      }
+    }
+
+    // Sort peaks by strength (strongest first)
+    peaks.sort((a, b) => (b['strength'] as double).compareTo(a['strength'] as double));
+
+    // Filter peaks by minimum separation time
+    final filteredPeaks = <double>[];
+    final minSeparationSeconds = minPeakSeparationMs / 1000.0;
+
+    for (final peak in peaks) {
+      final peakTime = peak['time'] as double;
+
+      // Check if this peak is far enough from all previously selected peaks
+      bool isFarEnough = true;
+      for (final selectedTime in filteredPeaks) {
+        if ((peakTime - selectedTime).abs() < minSeparationSeconds) {
+          isFarEnough = false;
+          break;
+        }
+      }
+
+      if (isFarEnough) {
+        filteredPeaks.add(peakTime);
+      }
+    }
+
+    // Sort by time (chronological order)
+    filteredPeaks.sort();
+
+    return filteredPeaks;
+  }
+
   // Calculate frequency-weighted spectral flux
   // Focuses on drum hit frequency range (200Hz-4000Hz) to reduce false positives
   // Uses Half-Wave Rectification (only count energy increases)

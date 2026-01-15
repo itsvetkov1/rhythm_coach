@@ -202,3 +202,80 @@ Learnings for future iterations:
 - The helper function pattern (duplicating private method logic in tests) continues to work well
 - _measureNoiseFloor and _applyHighPassFilter show as unused - expected until US-009 integration
 ---
+
+## Iteration 7 - Implement adaptive threshold calculation
+- Implemented US-007 from PRD.md
+- Added _calculateAdaptiveThreshold(double noiseFloorRMS, {double minimumThreshold = 0.15}) method to RhythmAnalyzer
+  - Formula: threshold = max(noiseFloorRMS * 3.0 + 0.1, minimumThreshold)
+  - Ensures threshold is always 3x above ambient noise level with 0.1 base offset
+  - Default minimum threshold of 0.15 prevents oversensitivity in perfect silence
+  - Comprehensive inline documentation explaining algorithm and parameters
+- Created comprehensive unit tests in test/services/rhythm_analyzer_adaptive_threshold_test.dart:
+  - Test 1: Perfect silence (0.0) uses minimum threshold (0.15)
+  - Test 2: Very quiet (0.01) uses minimum threshold
+  - Test 3: Low noise (0.02) uses adaptive calculation (0.16)
+  - Test 4: Moderate noise (0.05) calculates 0.25 threshold
+  - Test 5: High noise (0.10) calculates 0.40 threshold
+  - Test 6: Very high noise (0.20) calculates 0.70 threshold
+  - Test 7: Verifies 3x margin maintained across multiple noise levels
+  - Test 8: Custom minimum threshold respected
+  - Test 9: Deterministic calculation verified
+  - Test 10: Linear scaling property with noise floor verified
+- All 10 tests pass
+- Typecheck passes (124 lint warnings pre-existing, no errors)
+
+Files changed:
+- lib/services/rhythm_analyzer.dart (added _calculateAdaptiveThreshold method with full documentation)
+- test/services/rhythm_analyzer_adaptive_threshold_test.dart (new - 10 comprehensive unit tests)
+- PRD.md (marked US-007 complete)
+
+Learnings for future iterations:
+- Adaptive thresholding is critical for handling various recording environments
+- The 3x multiplier ensures significant margin above noise while the 0.1 offset prevents false positives from subtle variations
+- Minimum threshold (0.15) prevents overly sensitive detection in perfect silence
+- The method signature uses named optional parameter with default value for flexibility
+- Linear scaling property ensures predictable behavior as noise increases
+- This method will be integrated into the onset detection pipeline in US-009
+- _calculateAdaptiveThreshold, _measureNoiseFloor, and _applyHighPassFilter are all ready for pipeline integration
+---
+
+## Iteration 8 - Implement peak picking with temporal constraints
+- Implemented US-008 from PRD.md
+- Added _pickPeaks(List<double> fluxValues, {required double threshold, double minPeakSeparationMs, double peakStrengthMultiplier}) method to RhythmAnalyzer
+  - Finds local maxima in spectral flux values (current > previous AND current > next)
+  - Requires peaks to be at least peakStrengthMultiplier times above threshold (default 1.5x)
+  - Sorts peaks by strength (strongest first)
+  - Filters peaks by minimum separation time (default 50ms)
+  - Returns chronologically sorted list of onset times in seconds
+- Created comprehensive unit tests in test/services/rhythm_analyzer_peak_picking_test.dart:
+  - Test 1: Detects local maxima above strength threshold
+  - Test 2: Ignores peaks below strength threshold
+  - Test 3: Requires local maximum (peak must decrease after)
+  - Test 4: Enforces minimum separation between peaks
+  - Test 5: Allows peaks separated by more than minimum time
+  - Test 6: Keeps strongest peaks when multiple candidates compete
+  - Test 7: Handles empty flux values
+  - Test 8: Handles flux values with less than 3 elements
+  - Test 9: Calculates correct peak times in seconds
+  - Test 10: Respects custom minimum separation parameter
+  - Test 11: Respects custom peak strength multiplier
+- All 11 tests pass
+- Typecheck passes (125 lint warnings pre-existing, reduced from 127 - no new errors)
+
+Files changed:
+- lib/services/rhythm_analyzer.dart (added _pickPeaks method)
+- test/services/rhythm_analyzer_peak_picking_test.dart (new - 11 comprehensive unit tests)
+- PRD.md (marked US-008 complete)
+
+Learnings for future iterations:
+- Peak picking is essential for reducing false positives from noise fluctuations
+- Local maxima requirement ensures we only detect actual onset events, not random noise spikes
+- Strength threshold (1.5x base threshold) provides additional margin against weak noise
+- Minimum separation (50ms default) prevents double-detection from the same drum hit
+- Sorting by strength first ensures strongest peaks are selected when multiple candidates compete
+- The method takes flux values as input and returns onset times directly
+- Frame timing calculation: timeInSeconds = (frameIndex * hopSize) / sampleRate
+- At 44.1kHz with 512 hop size: each frame is ~11.6ms apart
+- This method will be integrated into _detectOnsets in US-009 to replace the current simple threshold check
+- All preprocessing methods (_measureNoiseFloor, _applyHighPassFilter, _calculateSpectralFlux, _calculateAdaptiveThreshold, _pickPeaks) are now ready for pipeline integration
+---
