@@ -102,3 +102,35 @@ Learnings for future iterations:
 - The diagnostic summary test provides valuable visibility into false positive rates
 
 ---
+
+## Iteration 4 - Implement noise floor measurement
+- Implemented US-004 from PRD.md
+- Added _measureNoiseFloor(List<double> samples) method to RhythmAnalyzer
+  - Uses first 1 second of audio (44100 samples) for noise measurement
+  - Calculates RMS energy of noise sample
+  - Returns noise floor value (0.0 to 1.0 scale)
+  - Handles edge cases: empty samples, audio shorter than 1 second
+- Created comprehensive unit tests in test/services/rhythm_analyzer_noise_floor_test.dart:
+  - Test 1: Complete silence returns 0.0
+  - Test 2: Low-level noise calculates correct RMS
+  - Test 3: Uses only first 1 second (ignores later loud sections)
+  - Test 4: Handles audio shorter than 1 second
+  - Test 5: Empty sample list returns 0.0
+  - Test 6: Known signal (sine wave) produces expected RMS value
+- All 6 tests pass
+- Typecheck passes (122 lint warnings pre-existing, no errors)
+
+Files changed:
+- lib/services/rhythm_analyzer.dart (added _measureNoiseFloor method)
+- test/services/rhythm_analyzer_noise_floor_test.dart (new - 6 unit tests)
+- PRD.md (marked US-004 complete)
+
+Learnings for future iterations:
+- Noise floor measurement provides the foundation for adaptive thresholding
+- Using first 1 second ensures we sample ambient noise before any drumming starts
+- RMS calculation can be reused from existing _calculateRMS() method
+- Tests use flutter_test package (not dart:test)
+- Helper function _measureNoiseFloorPublic() in test duplicates logic to test private method
+- Min function requires dart:math import (already imported in rhythm_analyzer.dart)
+- Future tasks (US-007) will use this noise floor value to calculate adaptive thresholds
+---
