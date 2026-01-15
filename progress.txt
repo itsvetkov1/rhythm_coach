@@ -312,3 +312,43 @@ Learnings for future iterations:
 - The new algorithm is more robust and scientifically sound than the previous simple threshold approach
 - Next task (US-010) will add configuration parameters to make tuning easier
 ---
+
+## Iteration 10 - Add configuration parameters for tuning
+- Implemented US-010 from PRD.md
+- Created OnsetDetectionConfig class with 5 tunable parameters:
+  - minimumThreshold: Absolute minimum threshold (default 0.15)
+  - noiseFloorMultiplier: Multiplier for noise floor calculation (default 3.0)
+  - minPeakSeparationMs: Minimum time between peaks (default 50ms)
+  - peakStrengthMultiplier: Peak must be this many times above threshold (default 1.5)
+  - highPassCutoffHz: Cutoff frequency for high-pass filter (default 60Hz)
+- Each parameter includes comprehensive documentation explaining:
+  - Purpose and effect on detection behavior
+  - Typical range of values
+  - Default value and reasoning
+- Updated analyzeAudio() method to accept optional OnsetDetectionConfig parameter
+  - Default value is OnsetDetectionConfig.defaultConfig for backward compatibility
+- Updated _detectOnsets() method to use config values instead of hardcoded constants
+- Updated _calculateAdaptiveThreshold() signature to accept noiseFloorMultiplier from config
+- Debug logging now shows config values for easier tuning
+- Updated all mock classes in test files to match new signature
+- Updated adaptive threshold test helper function to support noiseFloorMultiplier parameter
+- All false positive tests pass (4/4) with default config values
+- Typecheck passes (121 lint warnings pre-existing, no errors)
+
+Files changed:
+- lib/services/rhythm_analyzer.dart (added OnsetDetectionConfig class, updated method signatures)
+- test/features/audio/headphones_routing_test.dart (updated MockRhythmAnalyzer)
+- test/features/practice/start_practice_test.dart (updated MockRhythmAnalyzer)
+- test/services/rhythm_analyzer_adaptive_threshold_test.dart (updated helper function)
+- PRD.md (marked US-010 complete)
+
+Learnings for future iterations:
+- Configuration class pattern provides excellent flexibility for algorithm tuning
+- Default parameter values in const constructor enable backward compatibility
+- Comprehensive documentation in config class helps users understand parameter effects
+- Named parameters with default values maintain existing API compatibility
+- The config approach allows future tuning (US-011) without changing method signatures
+- Debug logging of config values is critical for understanding algorithm behavior during tuning
+- All existing tests pass with default config - validates that defaults match current behavior
+- Next task (US-011) can now adjust these parameters iteratively without touching core algorithm code
+---
