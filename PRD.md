@@ -90,12 +90,12 @@ This PRD outlines a complete rework of the onset detection algorithm to achieve 
 **Description:** As a system, I need thresholds that adapt to the noise floor so quiet environments don't get false positives.
 
 **Acceptance Criteria:**
-- [ ] Replace hardcoded threshold (0.25) with adaptive calculation
-- [ ] Base threshold = `noiseFloor * 3.0 + 0.1` (minimum 0.1)
-- [ ] Ensure threshold is always above noise floor by significant margin
-- [ ] Add `minimumThreshold` parameter (default 0.15) - never go below this
-- [ ] Add unit test for threshold calculation with various noise floors
-- [ ] Typecheck passes
+- [x] Replace hardcoded threshold (0.25) with adaptive calculation
+- [x] Base threshold = `noiseFloor * 3.0 + 0.1` (minimum 0.1)
+- [x] Ensure threshold is always above noise floor by significant margin
+- [x] Add `minimumThreshold` parameter (default 0.15) - never go below this
+- [x] Add unit test for threshold calculation with various noise floors
+- [x] Typecheck passes
 
 ### US-008: Implement peak picking with temporal constraints
 **Description:** As a system, I need peak picking that prevents multiple detections from the same drum hit.

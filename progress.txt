@@ -165,3 +165,40 @@ Learnings for future iterations:
 - Helper function pattern continues: duplicate private method logic in test for testing
 - This filter will be integrated into the onset detection pipeline (US-009) to preprocess audio before FFT
 ---
+
+## Iteration 6 - Implement improved spectral flux calculation
+- Implemented US-006 from PRD.md
+- Created new _calculateSpectralFlux(List<double>, List<double>) method in RhythmAnalyzer
+  - Calculates frequency bin resolution from FFT parameters
+  - Focuses on drum hit frequency range (200Hz-8000Hz)
+  - Ignores bins below 200Hz (rumble, handling noise)
+  - Ignores bins above 8000Hz (electronic noise, aliasing)
+  - Uses Half-Wave Rectification (only counts energy increases)
+  - Applies frequency weighting: 1.0 for 200-4kHz, 0.5 for 4-8kHz
+  - Normalizes flux by previous frame energy
+- Refactored _detectOnsets() to extract inline spectral flux calculation into separate method
+- Created comprehensive unit tests in test/services/rhythm_analyzer_spectral_flux_test.dart:
+  - Test 1: Verifies low-frequency rumble (<200Hz) is ignored
+  - Test 2: Verifies drum hit frequencies (200-4000Hz) produce positive flux
+  - Test 3: Verifies high-frequency noise (>8000Hz) is ignored
+  - Test 4: Verifies half-wave rectification (energy decreases ignored)
+  - Test 5: Verifies reduced weight for 4-8kHz range vs core drum range
+  - Test 6: Verifies zero energy handling
+  - Test 7: Verifies normalized flux values are in reasonable range
+- All 7 tests pass
+- Typecheck passes (only pre-existing avoid_print warnings and expected unused_element warnings for future tasks)
+
+Files changed:
+- lib/services/rhythm_analyzer.dart (added _calculateSpectralFlux method, refactored _detectOnsets)
+- test/services/rhythm_analyzer_spectral_flux_test.dart (new - 7 comprehensive unit tests)
+- PRD.md (marked US-006 complete)
+
+Learnings for future iterations:
+- Frequency-weighted spectral flux is a key improvement for reducing false positives
+- FFT bin resolution = (sampleRate / 2) / (fftSize / 2) = 21.53 Hz per bin for 44.1kHz / 2048 FFT
+- Focusing on 200-8kHz range eliminates most noise while capturing drum hits
+- Drum hits have primary energy in 200-4kHz range, so this gets full weight
+- 4-8kHz range contains cymbal energy and some drum harmonics, so gets reduced weight (0.5)
+- The helper function pattern (duplicating private method logic in tests) continues to work well
+- _measureNoiseFloor and _applyHighPassFilter show as unused - expected until US-009 integration
+---

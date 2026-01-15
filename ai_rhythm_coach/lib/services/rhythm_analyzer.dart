@@ -199,6 +199,36 @@ class RhythmAnalyzer {
     return filtered;
   }
 
+  // Calculate adaptive onset threshold based on noise floor
+  // The threshold adapts to ambient noise level to prevent false positives
+  // in quiet environments while still detecting real drum hits
+  //
+  // Parameters:
+  //   noiseFloorRMS: RMS energy of the first 1 second of audio (0.0 to 1.0)
+  //   minimumThreshold: Absolute minimum threshold (default 0.15)
+  //
+  // Formula: threshold = max(noiseFloorRMS * 3.0 + 0.1, minimumThreshold)
+  //
+  // This ensures:
+  // - Threshold is always significantly above noise floor (3x margin)
+  // - Base offset of 0.1 prevents overly sensitive detection
+  // - Never goes below minimumThreshold even in perfect silence
+  double _calculateAdaptiveThreshold(
+    double noiseFloorRMS, {
+    double minimumThreshold = 0.15,
+  }) {
+    // Calculate threshold relative to noise floor
+    // 3.0 multiplier ensures significant margin above ambient noise
+    // 0.1 offset prevents false positives from subtle variations
+    final adaptiveThreshold = noiseFloorRMS * 3.0 + 0.1;
+
+    // Ensure threshold never goes below minimum
+    // This prevents overly sensitive detection in perfect silence
+    final finalThreshold = max(adaptiveThreshold, minimumThreshold);
+
+    return finalThreshold;
+  }
+
   // Calculate frequency-weighted spectral flux
   // Focuses on drum hit frequency range (200Hz-4000Hz) to reduce false positives
   // Uses Half-Wave Rectification (only count energy increases)
