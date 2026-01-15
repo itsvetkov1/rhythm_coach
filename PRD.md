@@ -67,12 +67,12 @@ This PRD outlines a complete rework of the onset detection algorithm to achieve 
 **Description:** As a system, I need to filter out low-frequency rumble and DC offset so they don't trigger false onsets.
 
 **Acceptance Criteria:**
-- [ ] Add `_applyHighPassFilter(List<double> samples, double cutoffHz)` method
-- [ ] Implement simple first-order high-pass filter (cutoff at 60 Hz)
-- [ ] Apply filter to entire audio buffer before FFT analysis
-- [ ] Filter removes DC offset and rumble below 60 Hz
-- [ ] Add unit test verifying DC offset removal
-- [ ] Typecheck passes
+- [x] Add `_applyHighPassFilter(List<double> samples, double cutoffHz)` method
+- [x] Implement simple first-order high-pass filter (cutoff at 60 Hz)
+- [x] Apply filter to entire audio buffer before FFT analysis
+- [x] Filter removes DC offset and rumble below 60 Hz
+- [x] Add unit test verifying DC offset removal
+- [x] Typecheck passes
 
 ### US-006: Implement improved spectral flux calculation
 **Description:** As a system, I need better spectral flux calculation that focuses on drum hit frequencies and ignores noise.

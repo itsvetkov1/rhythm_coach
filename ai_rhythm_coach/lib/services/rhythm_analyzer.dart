@@ -171,6 +171,34 @@ class RhythmAnalyzer {
     return noiseFloorRMS;
   }
 
+  // Apply first-order high-pass filter to remove DC offset and low-frequency rumble
+  // Uses a simple recursive filter: y[n] = alpha * (y[n-1] + x[n] - x[n-1])
+  // where alpha = 1 / (1 + 2*pi*fc/fs) determines the cutoff frequency
+  // Cutoff frequency (fc) determines which frequencies are attenuated
+  List<double> _applyHighPassFilter(List<double> samples, double cutoffHz) {
+    if (samples.isEmpty) return samples;
+
+    // Calculate filter coefficient (alpha)
+    // alpha approaches 1.0 as cutoff frequency decreases (more filtering)
+    // alpha approaches 0.0 as cutoff frequency increases (less filtering)
+    final alpha = 1.0 / (1.0 + 2.0 * pi * cutoffHz / sampleRate);
+
+    final filtered = <double>[];
+    double previousInput = 0.0;
+    double previousOutput = 0.0;
+
+    for (final sample in samples) {
+      // First-order high-pass filter difference equation
+      final output = alpha * (previousOutput + sample - previousInput);
+      filtered.add(output);
+
+      previousInput = sample;
+      previousOutput = output;
+    }
+
+    return filtered;
+  }
+
   // Load audio file and convert to samples
   // Properly parses WAV file structure to find the audio data chunk
   Future<List<double>> _loadAudioSamples(String filePath) async {
