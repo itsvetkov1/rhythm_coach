@@ -147,12 +147,12 @@ This PRD outlines a complete rework of the onset detection algorithm to achieve 
 **Description:** As a developer, I need updated Python analysis tools to validate the new algorithm against real recordings.
 
 **Acceptance Criteria:**
-- [ ] Update `quick_start_experiment/analyze_new_recordings.py` to show noise floor measurements
-- [ ] Add visualization of adaptive threshold vs spectral flux
-- [ ] Add peak picking visualization (detected onsets marked on plot)
-- [ ] Compare old algorithm vs new algorithm side-by-side
-- [ ] Add summary statistics: false positive rate, detection accuracy
-- [ ] Update README with usage instructions
+- [x] Update `quick_start_experiment/analyze_new_recordings.py` to show noise floor measurements
+- [x] Add visualization of adaptive threshold vs spectral flux
+- [x] Add peak picking visualization (detected onsets marked on plot)
+- [x] Compare old algorithm vs new algorithm side-by-side
+- [x] Add summary statistics: false positive rate, detection accuracy
+- [x] Update README with usage instructions
 
 ### US-013: Validate with real recordings and document results
 **Description:** As a developer, I need to validate the new algorithm with real drum recordings and document performance.

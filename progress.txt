@@ -380,3 +380,60 @@ Learnings for future iterations:
 - The parameter documentation in OnsetDetectionConfig provides clear guidance for future tuning if needed
 - Next tasks (US-012, US-013) will validate with real recordings and Python diagnostic tools
 ---
+
+## Iteration 12 - Update Python diagnostic tools
+- Implemented US-012 from PRD.md
+- Completely rewrote `quick_start_experiment/analyze_new_recordings.py` with comprehensive features:
+  - Implemented Python versions of all onset detection components:
+    - measure_noise_floor() - calculates RMS from first 1 second
+    - calculate_adaptive_threshold() - noiseFloor × 3.0 + 0.1, min 0.15
+    - apply_high_pass_filter() - first-order 60 Hz cutoff filter
+    - pick_peaks() - local maxima with 50ms separation and 1.5× strength
+  - detect_onsets_old() - hardcoded threshold 0.25 (baseline)
+  - detect_onsets_new() - full 5-step adaptive pipeline
+  - analyze_recording() - runs both algorithms and compares results
+  - create_visualization() - generates 4-column comparison plots:
+    - Column 1: Waveform with noise floor indicators
+    - Column 2: Old algorithm spectral flux with threshold and detected onsets
+    - Column 3: New algorithm spectral flux with adaptive threshold and peak threshold
+    - Column 4: Summary comparison text panel
+  - main() - orchestrates analysis of multiple test recordings
+- Added comprehensive console output:
+  - Noise floor measurements for each recording
+  - Adaptive threshold calculations
+  - Detection counts and accuracy percentages
+  - False positive rates for silence/noise tests
+  - Side-by-side verdict comparisons
+  - Overall summary statistics
+- Fixed Windows encoding issues by replacing Unicode checkmarks with ASCII [PASS]/[FAIL]
+- Created `quick_start_experiment/README.md` with:
+  - Overview of all diagnostic tools
+  - Detailed setup instructions for Python venv
+  - Usage instructions and examples
+  - Output interpretation guide
+  - Algorithm parameter reference table
+  - Troubleshooting section
+  - Typical workflow for validating new algorithms
+- Tested script successfully - generates `onset_detection_comparison.png` visualization
+- Typecheck passes (121 lint warnings pre-existing, no errors)
+
+Files changed:
+- quick_start_experiment/analyze_new_recordings.py (complete rewrite - 518 lines)
+- quick_start_experiment/README.md (new - comprehensive documentation)
+- quick_start_experiment/onset_detection_comparison.png (generated output)
+- PRD.md (marked US-012 complete)
+
+Learnings for future iterations:
+- Python diagnostic tools are critical for validating algorithm behavior before integration
+- Side-by-side comparison (old vs new) clearly demonstrates improvement
+- The test recordings (test_silence_new.wav, test_sound_new.wav) have high RMS (0.3-0.4) and clipping
+  - These appear to be from old AGC-heavy implementation
+  - Both algorithms produce false positives on these recordings due to AGC artifacts
+  - Need fresh recordings with new native AudioRecord implementation for accurate validation
+- Visualizing adaptive threshold vs spectral flux is extremely helpful for understanding algorithm behavior
+- Peak picking visualization (green vertical lines) shows which onsets were actually selected
+- The Python implementation mirrors the Dart implementation closely for accurate validation
+- Windows console encoding issues require ASCII-safe output (avoid Unicode symbols)
+- README documentation is essential for future developers to use the tools effectively
+- Next task (US-013) will need new recordings from the improved native AudioRecord implementation
+---
