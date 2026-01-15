@@ -352,3 +352,31 @@ Learnings for future iterations:
 - All existing tests pass with default config - validates that defaults match current behavior
 - Next task (US-011) can now adjust these parameters iteratively without touching core algorithm code
 ---
+
+## Iteration 11 - Tune parameters to pass automated tests
+- Implemented US-011 from PRD.md
+- Verified all false positive tests pass with default OnsetDetectionConfig parameters
+- Test results:
+  - Silence test: 0 detections ✅ (expected: 0)
+  - White noise test: 0 detections ✅ (expected: 0) - eliminated 8 false positives from old algorithm
+  - Drum hits test: 8 detections ✅ (expected: 8 ±1)
+  - False positive rate: 0% (down from ~40% in previous algorithm)
+- Final parameter values (already documented in OnsetDetectionConfig class):
+  - minimumThreshold: 0.15 - absolute minimum for spectral flux onset detection
+  - noiseFloorMultiplier: 3.0 - adaptive threshold = noiseFloor * 3.0 + 0.1
+  - minPeakSeparationMs: 50.0 - prevents double-detection from same drum hit
+  - peakStrengthMultiplier: 1.5 - peak must be 1.5x above threshold
+  - highPassCutoffHz: 60.0 - removes rumble and DC offset
+- Typecheck passes (121 lint warnings pre-existing, no errors)
+
+Files changed:
+- PRD.md (marked US-011 complete)
+
+Learnings for future iterations:
+- The default parameters from US-010 were already optimized through the iterative development process
+- No additional tuning was needed - the pipeline design and initial parameter choices were sound
+- The combination of noise floor measurement, high-pass filtering, frequency-weighted spectral flux, adaptive thresholding, and peak picking successfully eliminates false positives
+- Test automation validates the algorithm works correctly across different signal types (silence, noise, drum hits)
+- The parameter documentation in OnsetDetectionConfig provides clear guidance for future tuning if needed
+- Next tasks (US-012, US-013) will validate with real recordings and Python diagnostic tools
+---
