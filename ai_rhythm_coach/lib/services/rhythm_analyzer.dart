@@ -199,6 +199,55 @@ class RhythmAnalyzer {
     return filtered;
   }
 
+  // Calculate frequency-weighted spectral flux
+  // Focuses on drum hit frequency range (200Hz-4000Hz) to reduce false positives
+  // Uses Half-Wave Rectification (only count energy increases)
+  // Returns normalized flux value
+  double _calculateSpectralFlux(
+    List<double> currentMagnitudes,
+    List<double> previousMagnitudes,
+  ) {
+    // Calculate frequency bin resolution
+    // FFT produces fftSize/2 bins from 0 Hz to sampleRate/2 (Nyquist)
+    final binResolution = (sampleRate / 2) / (fftSize / 2);
+
+    // Calculate bin indices for frequency ranges
+    // Focus on 200Hz-4000Hz (primary drum hit energy)
+    // Ignore bins below 200Hz (rumble, handling noise)
+    // Ignore bins above 8000Hz (electronic noise, aliasing)
+    final minBin = (200 / binResolution).floor();
+    final maxBin = min((8000 / binResolution).ceil(), currentMagnitudes.length);
+
+    // Calculate weighted spectral flux
+    double flux = 0.0;
+    double previousEnergy = 0.0;
+
+    for (int j = minBin; j < maxBin; j++) {
+      final diff = currentMagnitudes[j] - previousMagnitudes[j];
+
+      // Half-Wave Rectification: only count increases in energy
+      if (diff > 0) {
+        // Apply frequency weighting: emphasize 200-4000Hz range
+        // Bins between 200-4000Hz get full weight (1.0)
+        // Bins between 4000-8000Hz get reduced weight (0.5)
+        final binFreq = j * binResolution;
+        final weight = binFreq <= 4000 ? 1.0 : 0.5;
+
+        flux += diff * weight;
+      }
+
+      previousEnergy += previousMagnitudes[j];
+    }
+
+    // Normalize flux by previous frame energy to handle varying volume levels
+    // Add small epsilon to avoid division by zero
+    final normalizedFlux = previousEnergy > 0
+        ? flux / (previousEnergy + 0.0001)
+        : 0.0;
+
+    return normalizedFlux;
+  }
+
   // Load audio file and convert to samples
   // Properly parses WAV file structure to find the audio data chunk
   Future<List<double>> _loadAudioSamples(String filePath) async {
@@ -359,24 +408,10 @@ class RhythmAnalyzer {
 
       // Calculate spectral flux (difference from previous frame)
       if (previousMagnitudes != null) {
-        double flux = 0.0;
-        double previousEnergy = 0.0;
-
-        // Calculate flux and previous frame energy
-        for (int j = 0; j < magnitudes.length; j++) {
-          final diff = magnitudes[j] - previousMagnitudes[j];
-          // Only consider increases (positive differences)
-          if (diff > 0) {
-            flux += diff;
-          }
-          previousEnergy += previousMagnitudes[j];
-        }
-
-        // Normalize flux by previous frame energy to handle varying volume levels
-        // Add small epsilon to avoid division by zero
-        final normalizedFlux = previousEnergy > 0
-            ? flux / (previousEnergy + 0.0001)
-            : 0.0;
+        final normalizedFlux = _calculateSpectralFlux(
+          magnitudes,
+          previousMagnitudes,
+        );
 
         // Log spectral flux values for debugging (first 20 frames)
         if (debugMode && frameCount <= 20) {

@@ -78,13 +78,13 @@ This PRD outlines a complete rework of the onset detection algorithm to achieve 
 **Description:** As a system, I need better spectral flux calculation that focuses on drum hit frequencies and ignores noise.
 
 **Acceptance Criteria:**
-- [ ] Refactor `_calculateSpectralFlux()` to use frequency-weighted approach
-- [ ] Focus on 200Hz-4000Hz range (primary drum hit energy)
-- [ ] Ignore bins below 200Hz (rumble, handling noise)
-- [ ] Ignore bins above 8000Hz (electronic noise, aliasing)
-- [ ] Use Half-Wave Rectification (only count increases in energy)
-- [ ] Add unit test with synthetic frequency sweep
-- [ ] Typecheck passes
+- [x] Refactor `_calculateSpectralFlux()` to use frequency-weighted approach
+- [x] Focus on 200Hz-4000Hz range (primary drum hit energy)
+- [x] Ignore bins below 200Hz (rumble, handling noise)
+- [x] Ignore bins above 8000Hz (electronic noise, aliasing)
+- [x] Use Half-Wave Rectification (only count increases in energy)
+- [x] Add unit test with synthetic frequency sweep
+- [x] Typecheck passes
 
 ### US-007: Implement adaptive threshold calculation
 **Description:** As a system, I need thresholds that adapt to the noise floor so quiet environments don't get false positives.

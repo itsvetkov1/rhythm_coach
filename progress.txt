@@ -134,3 +134,34 @@ Learnings for future iterations:
 - Min function requires dart:math import (already imported in rhythm_analyzer.dart)
 - Future tasks (US-007) will use this noise floor value to calculate adaptive thresholds
 ---
+
+## Iteration 5 - Implement high-pass filter preprocessing
+- Implemented US-005 from PRD.md
+- Added _applyHighPassFilter(List<double> samples, double cutoffHz) method to RhythmAnalyzer
+  - Implements first-order recursive high-pass filter
+  - Filter equation: y[n] = alpha * (y[n-1] + x[n] - x[n-1])
+  - Alpha coefficient calculated from cutoff frequency (60 Hz) and sample rate
+  - Removes DC offset and attenuates frequencies below cutoff
+- Created comprehensive unit tests in test/services/rhythm_analyzer_high_pass_test.dart:
+  - Test 1: DC offset removal (constant signal becomes zero)
+  - Test 2: Low-frequency attenuation (30Hz sine wave reduced >50%)
+  - Test 3: High-frequency preservation (500Hz sine wave >80% preserved)
+  - Test 4: Mixed signal handling (DC removed, high freq preserved)
+  - Test 5: Empty samples returns empty list
+  - Test 6: Filter maintains correct sample count
+- All 6 tests pass
+- Typecheck passes (123 lint warnings pre-existing, no errors)
+
+Files changed:
+- lib/services/rhythm_analyzer.dart (added _applyHighPassFilter method)
+- test/services/rhythm_analyzer_high_pass_test.dart (new - 6 unit tests)
+- PRD.md (marked US-005 complete)
+
+Learnings for future iterations:
+- First-order high-pass filters have transient response at the start (need to skip initial samples when measuring)
+- Filter coefficient alpha determines cutoff: approaches 1.0 for lower cutoff, 0.0 for higher cutoff
+- The filter equation maintains state (previousInput, previousOutput) across samples
+- Testing signal processing requires checking steady-state behavior (skip transient at start)
+- Helper function pattern continues: duplicate private method logic in test for testing
+- This filter will be integrated into the onset detection pipeline (US-009) to preprocess audio before FFT
+---
