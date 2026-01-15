@@ -3,4 +3,40 @@
 ## Learnings
 (Patterns discovered during implementation)
 
+- RhythmAnalyzer.analyzeAudio() is the main public API that needs debug parameters
+- Mock classes in test files must match the exact signature including optional parameters
+- Debug logging should use StringBuffer for efficient string concatenation
+- path_provider is already available in pubspec.yaml for file operations
+- The _detectOnsets method now returns List<Map<String, double>> with 'time' and 'confidence' keys
+- Flutter analyze shows 103 pre-existing lint warnings (avoid_print) but no errors
+
+---
+
+## Iteration 1 - Add diagnostic instrumentation to RhythmAnalyzer
+- Implemented US-001 from PRD.md
+- Added debugMode and debugOutputPath optional parameters to analyzeAudio()
+- Created internal log() function that conditionally writes to StringBuffer
+- Updated _detectOnsets() to return onset data with confidence scores (normalized flux values)
+- Added detailed debug logging:
+  - FFT configuration (size, hop, sample rate)
+  - Spectral flux values for first 20 frames
+  - Threshold values and noise floor
+  - All detected onset times with confidence scores
+  - Frame processing statistics
+- Implemented _saveDebugLog() method to write timestamped files to app documents directory
+- Updated mock classes in headphones_routing_test.dart and start_practice_test.dart
+- Typecheck passes with no new errors
+
+Files changed:
+- lib/services/rhythm_analyzer.dart (main implementation)
+- test/features/audio/headphones_routing_test.dart (mock update)
+- test/features/practice/start_practice_test.dart (mock update)
+- PRD.md (marked US-001 complete)
+
+Learnings for future iterations:
+- Debug instrumentation is critical for understanding algorithm behavior
+- Confidence scores (spectral flux values) will be useful for tuning thresholds
+- The first 20 frames of logging provides good insight without overwhelming output
+- Future tasks should use this debug mode when testing new onset detection algorithms
+
 ---
