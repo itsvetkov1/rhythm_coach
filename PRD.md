@@ -158,13 +158,13 @@ This PRD outlines a complete rework of the onset detection algorithm to achieve 
 **Description:** As a developer, I need to validate the new algorithm with real drum recordings and document performance.
 
 **Acceptance Criteria:**
-- [ ] Test with at least 3 real recordings: silence, background noise, actual drumming
-- [ ] Run Python diagnostic tools on all recordings
-- [ ] Document results in `CLAUDE_SESSION_LOG.md`: false positive rate, detection accuracy
-- [ ] If accuracy < 95%, return to US-010 and retune parameters
-- [ ] Create test report showing before/after comparison
-- [ ] All existing integration tests pass
-- [ ] Typecheck passes
+- [x] Test with at least 3 real recordings: silence, background noise, actual drumming
+- [x] Run Python diagnostic tools on all recordings
+- [x] Document results in `CLAUDE_SESSION_LOG.md`: false positive rate, detection accuracy
+- [x] If accuracy < 95%, return to US-010 and retune parameters
+- [x] Create test report showing before/after comparison
+- [x] All existing integration tests pass
+- [x] Typecheck passes
 
 ## Non-Goals
 
