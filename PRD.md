@@ -113,12 +113,12 @@ This PRD outlines a complete rework of the onset detection algorithm to achieve 
 **Description:** As a developer, I need to integrate all new components into a coherent onset detection pipeline.
 
 **Acceptance Criteria:**
-- [ ] Update `analyzeRecording()` to use: noise floor → high-pass filter → spectral flux → adaptive threshold → peak picking
-- [ ] Process audio in correct order: filter → FFT → flux → threshold → peaks
-- [ ] Pass noise floor value through pipeline to adaptive threshold
-- [ ] Maintain existing return type: `List<TapEvent>`
-- [ ] Existing unit tests still compile (may fail until algorithm is tuned)
-- [ ] Typecheck passes
+- [x] Update `analyzeRecording()` to use: noise floor → high-pass filter → spectral flux → adaptive threshold → peak picking
+- [x] Process audio in correct order: filter → FFT → flux → threshold → peaks
+- [x] Pass noise floor value through pipeline to adaptive threshold
+- [x] Maintain existing return type: `List<TapEvent>`
+- [x] Existing unit tests still compile (may fail until algorithm is tuned)
+- [x] Typecheck passes
 
 ### US-010: Add configuration parameters for tuning
 **Description:** As a developer, I need easy access to tuning parameters so I can adjust sensitivity without changing code.

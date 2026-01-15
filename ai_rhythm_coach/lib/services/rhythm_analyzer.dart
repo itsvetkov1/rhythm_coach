@@ -15,9 +15,7 @@ class RhythmAnalyzer {
   static const int fftSize = 2048;
   static const int hopSize = 512;
   static const double sampleRate = 44100;
-  static const double onsetThreshold = 0.25; // Threshold for normalized spectral flux (balanced sensitivity)
   static const double minSignalEnergy = 0.001; // Minimum RMS energy to avoid detecting background noise
-  static const double noiseFloor = 0.0001; // Ignore samples below this threshold
 
   // Analyze audio file for rhythm accuracy
   Future<List<TapEvent>> analyzeAudio({
@@ -56,7 +54,6 @@ class RhythmAnalyzer {
       log('DEBUG: Max amplitude: ${maxAmplitude.toStringAsFixed(6)}');
       log('DEBUG: Minimum required energy: ${minSignalEnergy.toStringAsFixed(6)}');
       log('DEBUG: Energy check: ${rmsEnergy >= minSignalEnergy ? "PASS" : "FAIL"}');
-      log('DEBUG: Noise floor threshold: ${noiseFloor.toStringAsFixed(6)}');
 
       if (rmsEnergy < minSignalEnergy) {
         // Recording is too quiet or silent - no valid performance detected
@@ -68,8 +65,8 @@ class RhythmAnalyzer {
       }
 
       // Detect onset times (in seconds) with debug information
-      log('DEBUG: Starting onset detection...');
-      log('DEBUG: Current onset threshold: ${onsetThreshold.toStringAsFixed(3)}');
+      log('DEBUG: Starting onset detection with new pipeline...');
+      log('DEBUG: Pipeline: High-pass filter → Noise floor → FFT → Spectral flux → Adaptive threshold → Peak picking');
       final onsetData = _detectOnsets(samples, debugMode: debugMode, debugLog: debugLog);
       final onsetTimes = onsetData.map((d) => d['time'] as double).toList();
 
@@ -449,15 +446,14 @@ class RhythmAnalyzer {
     }
   }
 
-  // Detect onset times using FFT spectral flux
+  // Detect onset times using FFT spectral flux with new pipeline
+  // Pipeline: High-pass filter → Noise floor → FFT → Spectral flux → Adaptive threshold → Peak picking
   // Returns list of maps with 'time' and 'confidence' (normalized flux value)
   List<Map<String, double>> _detectOnsets(
     List<double> samples, {
     bool debugMode = false,
     StringBuffer? debugLog,
   }) {
-    final onsets = <Map<String, double>>[];
-
     void debugWrite(String message) {
       if (debugMode && debugLog != null) {
         debugLog.writeln(message);
@@ -469,31 +465,35 @@ class RhythmAnalyzer {
     debugWrite('DEBUG: Sample Rate: ${sampleRate}Hz');
 
     if (samples.length < fftSize) {
-      return onsets;
+      return [];
     }
 
+    // Step 1: Measure noise floor from first second of audio
+    final noiseFloorRMS = _measureNoiseFloor(samples);
+    debugWrite('DEBUG: Noise floor RMS: ${noiseFloorRMS.toStringAsFixed(6)}');
+
+    // Step 2: Apply high-pass filter to remove DC offset and low-frequency rumble
+    final filteredSamples = _applyHighPassFilter(samples, 60.0);
+    debugWrite('DEBUG: Applied high-pass filter (60 Hz cutoff)');
+
+    // Step 3: Calculate adaptive threshold based on noise floor
+    final adaptiveThreshold = _calculateAdaptiveThreshold(
+      noiseFloorRMS,
+      minimumThreshold: 0.15,
+    );
+    debugWrite('DEBUG: Adaptive threshold: ${adaptiveThreshold.toStringAsFixed(4)} (noise floor: ${noiseFloorRMS.toStringAsFixed(6)})');
+
+    // Step 4: FFT sliding window to calculate spectral flux for each frame
     final fft = FFT(fftSize);
     List<double>? previousMagnitudes;
-
-    debugWrite('DEBUG: Starting FFT sliding window analysis...');
+    final fluxValues = <double>[];
     int frameCount = 0;
 
-    // Sliding window FFT
-    for (int i = 0; i < samples.length - fftSize; i += hopSize) {
-      frameCount++;
-      final window = samples.sublist(i, i + fftSize);
+    debugWrite('DEBUG: Starting FFT sliding window analysis...');
 
-      // Apply noise gate: Check if window has sufficient energy
-      // Skip processing if entire window is below noise floor
-      final windowEnergy = _calculateRMS(window);
-      if (windowEnergy < noiseFloor) {
-        // Window is just noise, skip it
-        if (debugMode && frameCount <= 5) {
-          debugWrite('Frame $frameCount: Skipped (energy: ${windowEnergy.toStringAsFixed(6)} < ${noiseFloor.toStringAsFixed(6)})');
-        }
-        previousMagnitudes = null; // Reset to avoid false onset at next valid frame
-        continue;
-      }
+    for (int i = 0; i < filteredSamples.length - fftSize; i += hopSize) {
+      frameCount++;
+      final window = filteredSamples.sublist(i, i + fftSize);
 
       // Apply Hanning window to reduce spectral leakage
       final windowedSamples = _applyHanningWindow(window);
@@ -515,33 +515,50 @@ class RhythmAnalyzer {
           magnitudes,
           previousMagnitudes,
         );
+        fluxValues.add(normalizedFlux);
 
         // Log spectral flux values for debugging (first 20 frames)
         if (debugMode && frameCount <= 20) {
-          debugWrite('Frame $frameCount: spectral_flux=${normalizedFlux.toStringAsFixed(4)}, threshold=${onsetThreshold.toStringAsFixed(3)}, exceeds=${normalizedFlux > onsetThreshold}');
+          debugWrite('Frame $frameCount: spectral_flux=${normalizedFlux.toStringAsFixed(4)}, threshold=${adaptiveThreshold.toStringAsFixed(3)}, exceeds=${normalizedFlux > adaptiveThreshold}');
         }
-
-        // If normalized flux exceeds threshold, mark as onset
-        if (normalizedFlux > onsetThreshold) {
-          final timeInSeconds = i / sampleRate;
-          // Avoid marking onsets too close together (minimum 50ms apart)
-          if (onsets.isEmpty || (timeInSeconds - (onsets.last['time'] as double)) > 0.05) {
-            onsets.add({
-              'time': timeInSeconds,
-              'confidence': normalizedFlux,
-            });
-            if (debugMode) {
-              debugWrite('ONSET DETECTED: time=${timeInSeconds.toStringAsFixed(3)}s, confidence=${normalizedFlux.toStringAsFixed(4)}');
-            }
-          }
-        }
+      } else {
+        // First frame has no previous frame to compare
+        fluxValues.add(0.0);
       }
 
       previousMagnitudes = magnitudes;
     }
 
     debugWrite('DEBUG: Total frames processed: $frameCount');
-    debugWrite('DEBUG: Total onsets detected: ${onsets.length}');
+    debugWrite('DEBUG: Total flux values calculated: ${fluxValues.length}');
+
+    // Step 5: Peak picking to find actual onset times
+    final onsetTimes = _pickPeaks(
+      fluxValues,
+      threshold: adaptiveThreshold,
+      minPeakSeparationMs: 50.0,
+      peakStrengthMultiplier: 1.5,
+    );
+
+    debugWrite('DEBUG: Total onsets detected after peak picking: ${onsetTimes.length}');
+
+    // Convert onset times to expected format (list of maps with 'time' and 'confidence')
+    final onsets = <Map<String, double>>[];
+    for (final onsetTime in onsetTimes) {
+      // Find the flux value at this onset time to use as confidence
+      final frameIndex = ((onsetTime * sampleRate) / hopSize).round();
+      final confidence = frameIndex < fluxValues.length ? fluxValues[frameIndex] : 0.0;
+
+      onsets.add({
+        'time': onsetTime,
+        'confidence': confidence,
+      });
+
+      if (debugMode) {
+        debugWrite('ONSET DETECTED: time=${onsetTime.toStringAsFixed(3)}s, confidence=${confidence.toStringAsFixed(4)}');
+      }
+    }
+
     debugWrite('DEBUG: ===== End Onset Detection =====');
 
     return onsets;
