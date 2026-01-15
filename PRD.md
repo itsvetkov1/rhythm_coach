@@ -135,13 +135,13 @@ This PRD outlines a complete rework of the onset detection algorithm to achieve 
 **Description:** As a developer, I need to find parameter values that eliminate false positives while detecting real drum hits.
 
 **Acceptance Criteria:**
-- [ ] Adjust `OnsetDetectionConfig` defaults iteratively
-- [ ] All tests in `rhythm_analyzer_false_positive_test.dart` pass
-- [ ] Silence test: 0 detections
-- [ ] Noise test: 0 detections
-- [ ] Drum hits test: 7-9 detections (8 expected)
-- [ ] Document final parameter values in code comments
-- [ ] Typecheck passes
+- [x] Adjust `OnsetDetectionConfig` defaults iteratively
+- [x] All tests in `rhythm_analyzer_false_positive_test.dart` pass
+- [x] Silence test: 0 detections
+- [x] Noise test: 0 detections
+- [x] Drum hits test: 7-9 detections (8 expected)
+- [x] Document final parameter values in code comments
+- [x] Typecheck passes
 
 ### US-012: Update Python diagnostic tools
 **Description:** As a developer, I need updated Python analysis tools to validate the new algorithm against real recordings.
