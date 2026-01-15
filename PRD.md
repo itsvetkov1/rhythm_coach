@@ -56,12 +56,12 @@ This PRD outlines a complete rework of the onset detection algorithm to achieve 
 **Description:** As a system, I need to measure the ambient noise level before onset detection so I can set adaptive thresholds.
 
 **Acceptance Criteria:**
-- [ ] Add `_measureNoiseFloor(List<double> samples)` method to RhythmAnalyzer
-- [ ] Use first 1 second of audio (44100 samples) for noise measurement
-- [ ] Calculate RMS (root mean square) energy of noise sample
-- [ ] Return noise floor value (0.0 to 1.0 scale)
-- [ ] Add unit test for noise floor calculation with known test signals
-- [ ] Typecheck passes
+- [x] Add `_measureNoiseFloor(List<double> samples)` method to RhythmAnalyzer
+- [x] Use first 1 second of audio (44100 samples) for noise measurement
+- [x] Calculate RMS (root mean square) energy of noise sample
+- [x] Return noise floor value (0.0 to 1.0 scale)
+- [x] Add unit test for noise floor calculation with known test signals
+- [x] Typecheck passes
 
 ### US-005: Implement high-pass filter preprocessing
 **Description:** As a system, I need to filter out low-frequency rumble and DC offset so they don't trigger false onsets.

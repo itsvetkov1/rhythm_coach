@@ -155,6 +155,22 @@ class RhythmAnalyzer {
     return sqrt(sumSquares / samples.length);
   }
 
+  // Measure noise floor from the first second of audio
+  // Returns RMS energy of the noise sample (0.0 to 1.0 scale)
+  // This allows adaptive thresholding based on ambient noise level
+  double _measureNoiseFloor(List<double> samples) {
+    if (samples.isEmpty) return 0.0;
+
+    // Use first 1 second of audio for noise measurement (44100 samples at 44.1kHz)
+    final noiseSampleSize = min(44100, samples.length);
+    final noiseSample = samples.sublist(0, noiseSampleSize);
+
+    // Calculate RMS energy of noise sample
+    final noiseFloorRMS = _calculateRMS(noiseSample);
+
+    return noiseFloorRMS;
+  }
+
   // Load audio file and convert to samples
   // Properly parses WAV file structure to find the audio data chunk
   Future<List<double>> _loadAudioSamples(String filePath) async {
