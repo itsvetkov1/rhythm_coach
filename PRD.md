@@ -45,12 +45,12 @@ This PRD outlines a complete rework of the onset detection algorithm to achieve 
 **Description:** As a developer, I want automated tests that fail when false positives occur so I catch regressions.
 
 **Acceptance Criteria:**
-- [ ] Test: `test_silence.wav` produces zero detected onsets
-- [ ] Test: `test_white_noise.wav` produces zero detected onsets
-- [ ] Test: `test_drum_hits.wav` detects exactly 8 onsets (±1 acceptable)
-- [ ] Tests currently FAIL with existing algorithm (expected)
-- [ ] Add test file: `test/services/rhythm_analyzer_false_positive_test.dart`
-- [ ] Typecheck passes
+- [x] Test: `test_silence.wav` produces zero detected onsets
+- [x] Test: `test_white_noise.wav` produces zero detected onsets
+- [x] Test: `test_drum_hits.wav` detects exactly 8 onsets (±1 acceptable)
+- [x] Tests currently FAIL with existing algorithm (expected)
+- [x] Add test file: `test/services/rhythm_analyzer_false_positive_test.dart`
+- [x] Typecheck passes
 
 ### US-004: Implement noise floor measurement
 **Description:** As a system, I need to measure the ambient noise level before onset detection so I can set adaptive thresholds.
