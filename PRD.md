@@ -124,12 +124,12 @@ This PRD outlines a complete rework of the onset detection algorithm to achieve 
 **Description:** As a developer, I need easy access to tuning parameters so I can adjust sensitivity without changing code.
 
 **Acceptance Criteria:**
-- [ ] Add `OnsetDetectionConfig` class with parameters: `minimumThreshold`, `noiseFloorMultiplier`, `minPeakSeparationMs`, `peakStrengthMultiplier`, `highPassCutoffHz`
-- [ ] Add default values that represent initial best guess
-- [ ] Pass config object to `analyzeRecording()` method
-- [ ] Update existing calls to use default config
-- [ ] Document each parameter in code comments
-- [ ] Typecheck passes
+- [x] Add `OnsetDetectionConfig` class with parameters: `minimumThreshold`, `noiseFloorMultiplier`, `minPeakSeparationMs`, `peakStrengthMultiplier`, `highPassCutoffHz`
+- [x] Add default values that represent initial best guess
+- [x] Pass config object to `analyzeRecording()` method
+- [x] Update existing calls to use default config
+- [x] Document each parameter in code comments
+- [x] Typecheck passes
 
 ### US-011: Tune parameters to pass automated tests
 **Description:** As a developer, I need to find parameter values that eliminate false positives while detecting real drum hits.

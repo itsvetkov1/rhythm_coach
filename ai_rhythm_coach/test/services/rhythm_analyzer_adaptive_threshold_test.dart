@@ -7,9 +7,10 @@ void main() {
     // This duplicates the private method logic for testing purposes
     double calculateAdaptiveThreshold(
       double noiseFloorRMS, {
+      double noiseFloorMultiplier = 3.0,
       double minimumThreshold = 0.15,
     }) {
-      final adaptiveThreshold = noiseFloorRMS * 3.0 + 0.1;
+      final adaptiveThreshold = noiseFloorRMS * noiseFloorMultiplier + 0.1;
       final finalThreshold = max(adaptiveThreshold, minimumThreshold);
       return finalThreshold;
     }

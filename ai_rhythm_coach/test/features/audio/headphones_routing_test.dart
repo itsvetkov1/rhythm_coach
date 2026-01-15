@@ -62,6 +62,7 @@ class MockRhythmAnalyzer extends RhythmAnalyzer {
     required int durationSeconds,
     bool debugMode = false,
     String? debugOutputPath,
+    OnsetDetectionConfig config = OnsetDetectionConfig.defaultConfig,
   }) async {
     return [TapEvent(actualTime: 0.5, expectedTime: 0.5, error: 0.0)];
   }

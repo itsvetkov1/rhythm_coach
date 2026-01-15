@@ -11,6 +11,72 @@ class MetronomeBleedException implements Exception {
   String toString() => message;
 }
 
+/// Configuration parameters for onset detection algorithm tuning.
+///
+/// These parameters control the sensitivity and behavior of the onset detection
+/// pipeline. Adjust these values to optimize detection accuracy and reduce
+/// false positives for different recording environments.
+class OnsetDetectionConfig {
+  /// Absolute minimum threshold for spectral flux onset detection.
+  /// The adaptive threshold will never go below this value, even in perfect silence.
+  /// Higher values reduce false positives but may miss quiet hits.
+  /// Typical range: 0.1 to 0.3
+  /// Default: 0.15
+  final double minimumThreshold;
+
+  /// Multiplier applied to noise floor when calculating adaptive threshold.
+  /// Formula: threshold = noiseFloor * noiseFloorMultiplier + 0.1
+  /// Higher values provide more margin above ambient noise.
+  /// Typical range: 2.0 to 5.0
+  /// Default: 3.0
+  final double noiseFloorMultiplier;
+
+  /// Minimum time separation between consecutive onset detections (in milliseconds).
+  /// Prevents double-detection from the same drum hit.
+  /// Must be less than the expected beat interval (e.g., 500ms at 120 BPM).
+  /// Typical range: 30ms to 100ms
+  /// Default: 50ms
+  final double minPeakSeparationMs;
+
+  /// Peak must be this many times above the base threshold to be considered valid.
+  /// Provides additional margin against noise fluctuations.
+  /// Typical range: 1.2 to 2.0
+  /// Default: 1.5
+  final double peakStrengthMultiplier;
+
+  /// Cutoff frequency for high-pass filter (in Hz).
+  /// Removes low-frequency rumble, handling noise, and DC offset.
+  /// Should be well below the lowest drum fundamental frequency (~80-100 Hz).
+  /// Typical range: 40Hz to 80Hz
+  /// Default: 60Hz
+  final double highPassCutoffHz;
+
+  /// Creates onset detection configuration with specified parameters.
+  ///
+  /// All parameters are optional and have sensible defaults optimized for
+  /// typical drum recording scenarios with minimal background noise.
+  const OnsetDetectionConfig({
+    this.minimumThreshold = 0.15,
+    this.noiseFloorMultiplier = 3.0,
+    this.minPeakSeparationMs = 50.0,
+    this.peakStrengthMultiplier = 1.5,
+    this.highPassCutoffHz = 60.0,
+  });
+
+  /// Default configuration optimized for typical use cases.
+  static const OnsetDetectionConfig defaultConfig = OnsetDetectionConfig();
+
+  @override
+  String toString() {
+    return 'OnsetDetectionConfig('
+        'minimumThreshold: $minimumThreshold, '
+        'noiseFloorMultiplier: $noiseFloorMultiplier, '
+        'minPeakSeparationMs: $minPeakSeparationMs, '
+        'peakStrengthMultiplier: $peakStrengthMultiplier, '
+        'highPassCutoffHz: $highPassCutoffHz)';
+  }
+}
+
 class RhythmAnalyzer {
   static const int fftSize = 2048;
   static const int hopSize = 512;
@@ -24,6 +90,7 @@ class RhythmAnalyzer {
     required int durationSeconds,
     bool debugMode = false,
     String? debugOutputPath,
+    OnsetDetectionConfig config = OnsetDetectionConfig.defaultConfig,
   }) async {
     final debugLog = StringBuffer();
 
@@ -48,6 +115,7 @@ class RhythmAnalyzer {
 
       log('DEBUG: ========== Audio Analysis Debug Info ==========');
       log('DEBUG: Debug Mode: ${debugMode ? "ENABLED" : "DISABLED"}');
+      log('DEBUG: Onset Detection Config: $config');
       log('DEBUG: Total samples loaded: ${samples.length}');
       log('DEBUG: Duration: ${duration.toStringAsFixed(2)}s');
       log('DEBUG: Recording RMS energy: ${rmsEnergy.toStringAsFixed(6)}');
@@ -67,7 +135,12 @@ class RhythmAnalyzer {
       // Detect onset times (in seconds) with debug information
       log('DEBUG: Starting onset detection with new pipeline...');
       log('DEBUG: Pipeline: High-pass filter → Noise floor → FFT → Spectral flux → Adaptive threshold → Peak picking');
-      final onsetData = _detectOnsets(samples, debugMode: debugMode, debugLog: debugLog);
+      final onsetData = _detectOnsets(
+        samples,
+        config: config,
+        debugMode: debugMode,
+        debugLog: debugLog,
+      );
       final onsetTimes = onsetData.map((d) => d['time'] as double).toList();
 
       log('DEBUG: Detected ${onsetTimes.length} onsets');
@@ -202,22 +275,24 @@ class RhythmAnalyzer {
   //
   // Parameters:
   //   noiseFloorRMS: RMS energy of the first 1 second of audio (0.0 to 1.0)
-  //   minimumThreshold: Absolute minimum threshold (default 0.15)
+  //   noiseFloorMultiplier: Multiplier applied to noise floor (from config)
+  //   minimumThreshold: Absolute minimum threshold (from config)
   //
-  // Formula: threshold = max(noiseFloorRMS * 3.0 + 0.1, minimumThreshold)
+  // Formula: threshold = max(noiseFloorRMS * noiseFloorMultiplier + 0.1, minimumThreshold)
   //
   // This ensures:
-  // - Threshold is always significantly above noise floor (3x margin)
+  // - Threshold is always significantly above noise floor (multiplier determines margin)
   // - Base offset of 0.1 prevents overly sensitive detection
   // - Never goes below minimumThreshold even in perfect silence
   double _calculateAdaptiveThreshold(
     double noiseFloorRMS, {
-    double minimumThreshold = 0.15,
+    required double noiseFloorMultiplier,
+    required double minimumThreshold,
   }) {
     // Calculate threshold relative to noise floor
-    // 3.0 multiplier ensures significant margin above ambient noise
+    // Multiplier ensures significant margin above ambient noise
     // 0.1 offset prevents false positives from subtle variations
-    final adaptiveThreshold = noiseFloorRMS * 3.0 + 0.1;
+    final adaptiveThreshold = noiseFloorRMS * noiseFloorMultiplier + 0.1;
 
     // Ensure threshold never goes below minimum
     // This prevents overly sensitive detection in perfect silence
@@ -451,6 +526,7 @@ class RhythmAnalyzer {
   // Returns list of maps with 'time' and 'confidence' (normalized flux value)
   List<Map<String, double>> _detectOnsets(
     List<double> samples, {
+    required OnsetDetectionConfig config,
     bool debugMode = false,
     StringBuffer? debugLog,
   }) {
@@ -473,15 +549,16 @@ class RhythmAnalyzer {
     debugWrite('DEBUG: Noise floor RMS: ${noiseFloorRMS.toStringAsFixed(6)}');
 
     // Step 2: Apply high-pass filter to remove DC offset and low-frequency rumble
-    final filteredSamples = _applyHighPassFilter(samples, 60.0);
-    debugWrite('DEBUG: Applied high-pass filter (60 Hz cutoff)');
+    final filteredSamples = _applyHighPassFilter(samples, config.highPassCutoffHz);
+    debugWrite('DEBUG: Applied high-pass filter (${config.highPassCutoffHz} Hz cutoff)');
 
     // Step 3: Calculate adaptive threshold based on noise floor
     final adaptiveThreshold = _calculateAdaptiveThreshold(
       noiseFloorRMS,
-      minimumThreshold: 0.15,
+      noiseFloorMultiplier: config.noiseFloorMultiplier,
+      minimumThreshold: config.minimumThreshold,
     );
-    debugWrite('DEBUG: Adaptive threshold: ${adaptiveThreshold.toStringAsFixed(4)} (noise floor: ${noiseFloorRMS.toStringAsFixed(6)})');
+    debugWrite('DEBUG: Adaptive threshold: ${adaptiveThreshold.toStringAsFixed(4)} (noise floor: ${noiseFloorRMS.toStringAsFixed(6)}, multiplier: ${config.noiseFloorMultiplier}, min: ${config.minimumThreshold})');
 
     // Step 4: FFT sliding window to calculate spectral flux for each frame
     final fft = FFT(fftSize);
@@ -536,8 +613,8 @@ class RhythmAnalyzer {
     final onsetTimes = _pickPeaks(
       fluxValues,
       threshold: adaptiveThreshold,
-      minPeakSeparationMs: 50.0,
-      peakStrengthMultiplier: 1.5,
+      minPeakSeparationMs: config.minPeakSeparationMs,
+      peakStrengthMultiplier: config.peakStrengthMultiplier,
     );
 
     debugWrite('DEBUG: Total onsets detected after peak picking: ${onsetTimes.length}');
