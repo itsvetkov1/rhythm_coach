@@ -3,7 +3,6 @@ import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ai_rhythm_coach/services/rhythm_analyzer.dart';
-import 'package:ai_rhythm_coach/models/tap_event.dart';
 
 void main() {
   late RhythmAnalyzer analyzer;

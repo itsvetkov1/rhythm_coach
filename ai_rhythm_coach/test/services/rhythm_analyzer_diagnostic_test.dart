@@ -3,7 +3,6 @@ import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ai_rhythm_coach/services/rhythm_analyzer.dart';
-import 'package:path_provider/path_provider.dart';
 
 void main() {
   group('RhythmAnalyzer Diagnostic Tests', () {

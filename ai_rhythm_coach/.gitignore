@@ -46,3 +46,4 @@ app.*.map.json
 
 # AI API Configuration (contains sensitive API keys)
 lib/config.dart
+**/venv/

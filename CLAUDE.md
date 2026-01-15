@@ -6,22 +6,33 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 AI Rhythm Coach is an Android mobile app that helps drummers and musicians improve rhythm accuracy through AI-powered coaching feedback. Users practice against a metronome, and the app analyzes their performance using onset detection algorithms and provides personalized coaching via Claude or GPT APIs.
 
-**Current Status:** Planning phase - no code implementation yet. Complete technical specification exists.
+**Current Status:** Active development - Core audio recording and onset detection implemented with native Android AudioRecord API.
 
 **Platform:** Android (Flutter framework)
 **MVP Scope:** 4/4 time signature, 40-200 BPM, 60-second practice sessions, local storage only
 
+**Active Branches:**
+- `main` - Stable baseline
+- `fix/improve-onset-detection` - Onset detection improvements
+- `feature/native-audio-record` - **Current work**: Native Android AudioRecord implementation for AGC control
+
+**Session Logs:** See `CLAUDE_SESSION_LOG.md` for detailed development history and technical decisions
+
 ## Technology Stack
 
 - **Framework:** Flutter/Dart
-- **Audio:** flutter_sound (recording, playback, metronome)
+- **Audio Recording:** Native Android AudioRecord API (Kotlin) via platform channels
+  - Direct hardware access with minimal AGC
+  - VOICE_RECOGNITION audio source for optimal drum detection
+  - 44.1kHz, Mono, PCM 16-bit WAV output
+- **Audio Playback:** flutter_sound (metronome clicks)
 - **DSP:** fftea (FFT for onset detection)
 - **State Management:** Provider pattern
 - **Persistence:** SharedPreferences (session metadata) + file system (audio files)
 - **AI APIs:** Anthropic Claude or OpenAI GPT (configurable)
 - **Key Dependencies:**
   - `provider: ^6.0.5` - State management
-  - `flutter_sound: ^9.2.13` - Audio recording/playback
+  - `flutter_sound: ^9.2.13` - Metronome playback only (recording uses native API)
   - `fftea: ^1.0.0` - FFT analysis
   - `http: ^1.1.0` - AI API calls
   - `shared_preferences: ^2.2.0` - Local storage
@@ -49,10 +60,20 @@ AI Rhythm Coach is an Android mobile app that helps drummers and musicians impro
   - Auto-deletes oldest sessions when limit exceeded
 
 - **AudioService** (`lib/services/audio_service.dart`)
-  - Records 60-second user audio to AAC format
+  - **Recording:** Uses native Android AudioRecord API via NativeAudioRecorder
+    - VOICE_RECOGNITION audio source (minimal AGC)
+    - 44.1kHz sample rate, Mono, PCM 16-bit
+    - Direct WAV file output (no AAC conversion needed)
+  - **Playback:** Uses flutter_sound for metronome clicks
   - Plays metronome clicks (high/low for downbeat emphasis)
   - Plays 4-beat count-in before recording
-  - Manages flutter_sound recorder/player instances
+  - Manages audio session configuration for proper headphone routing
+
+- **NativeAudioRecorder** (`lib/services/native_audio_recorder.dart`)
+  - Flutter wrapper for native Android AudioRecord
+  - Platform channel communication with Kotlin implementation
+  - Supports multiple audio sources (VOICE_RECOGNITION, UNPROCESSED, MIC)
+  - Proper WAV header generation and file handling
 
 - **RhythmAnalyzer** (`lib/services/rhythm_analyzer.dart`)
   - FFT-based onset detection (2048 sample window, 512 hop size)
@@ -93,13 +114,19 @@ lib/
 │   └── practice_controller.dart # Main practice session orchestrator
 ├── services/
 │   ├── session_manager.dart    # Session persistence
-│   ├── audio_service.dart      # Audio recording/playback
+│   ├── audio_service.dart      # Audio recording/playback orchestration
+│   ├── native_audio_recorder.dart # Flutter wrapper for native Android AudioRecord
 │   ├── rhythm_analyzer.dart    # FFT onset detection
 │   └── ai_coaching_service.dart # AI API integration
 ├── screens/
 │   ├── practice_screen.dart    # Main practice interface
 │   └── results_screen.dart     # Session results display
 └── widgets/                     # Reusable UI components
+
+android/
+└── app/src/main/kotlin/com/rhythmcoach/ai_rhythm_coach/
+    ├── MainActivity.kt          # Flutter activity with platform channel setup
+    └── NativeAudioRecorder.kt   # Native Android AudioRecord implementation
 
 assets/
 └── audio/
@@ -110,6 +137,14 @@ test/
 ├── models/                      # Model serialization tests
 ├── controllers/                 # Controller state tests
 └── services/                    # Service unit tests (use mockito)
+
+quick_start_experiment/          # Python diagnostic tools for audio analysis
+├── analyze_drum_practice.py    # Aubio-based onset detection analysis
+├── diagnose_false_positives.py # AGC and clipping detection
+├── analyze_new_recordings.py   # Multi-recording comparison tool
+└── venv/                        # Python 3.10 environment with audio libraries
+
+CLAUDE_SESSION_LOG.md            # Detailed development history and decisions
 ```
 
 ## Development Commands
@@ -187,13 +222,19 @@ class AIConfig {
 
 **Audio Processing Pipeline:**
 ```
-Raw Audio (AAC) → PCM Samples → FFT Windows → Spectral Flux
-→ Onset Detection → Beat Matching → TapEvents with Errors
+Native AudioRecord (VOICE_RECOGNITION source)
+→ Raw PCM 16-bit samples (44.1kHz, Mono)
+→ WAV file with proper headers
+→ FFT Windows (2048 samples, 512 hop)
+→ Spectral Flux calculation
+→ Onset Detection (threshold: 0.25)
+→ Beat Matching (±300ms tolerance)
+→ TapEvents with timing errors (ms)
 ```
 
 **Storage Strategy:**
 - **Session Metadata:** SharedPreferences (JSON array, max 10 sessions)
-- **Audio Files:** App documents directory (AAC format)
+- **Audio Files:** App documents directory (WAV format, PCM 16-bit)
 - **Auto-cleanup:** Oldest session deleted when limit exceeded
 - **No cloud sync:** All data local-only for MVP
 
@@ -261,15 +302,63 @@ Raw Audio (AAC) → PCM Samples → FFT Windows → Spectral Flux
 - **Single time signature:** 4/4 only for MVP
 - **Fixed duration:** 60-second sessions with 4-beat count-in
 
+## Native Audio Implementation (Current Branch)
+
+**Why Native AudioRecord?**
+- flutter_sound doesn't expose Android's audio source options
+- Android's AGC (Automatic Gain Control) was causing false positives
+- Silence was being amplified to maximum (clipping at 1.0)
+- Need direct control over audio input settings
+
+**Implementation Details:**
+- **Audio Source**: `MediaRecorder.AudioSource.VOICE_RECOGNITION`
+  - Minimal AGC designed for speech recognition
+  - Best balance between sensitivity and noise rejection
+  - Alternative: `UNPROCESSED` (API 29+, may not be supported on all devices)
+- **Sample Rate**: 44100 Hz (standard for music applications)
+- **Format**: PCM 16-bit, Mono
+- **Buffer**: 4x minimum buffer size for stability
+- **Threading**: Background thread for I/O operations
+
+**Platform Channel:**
+- Channel name: `com.rhythmcoach.ai_rhythm_coach/native_audio`
+- Methods: `initialize`, `startRecording`, `stopRecording`, `release`
+- Bidirectional communication between Dart and Kotlin
+
+**Files:**
+- Native: `android/app/src/main/kotlin/.../NativeAudioRecorder.kt`
+- Platform channel: `MainActivity.kt`
+- Flutter wrapper: `lib/services/native_audio_recorder.dart`
+- Integration: `lib/services/audio_service.dart` (uses NativeAudioRecorder)
+
+**Testing:**
+Use Python diagnostic tools in `quick_start_experiment/`:
+```bash
+cd quick_start_experiment
+source venv/Scripts/activate
+python analyze_new_recordings.py  # Compare silence vs drumming
+```
+
+**Expected Results:**
+- Silence: RMS < 0.05, max < 0.9 (no clipping)
+- Drumming: Clear amplitude spikes for hits
+- No false positives from background noise
+
+See `CLAUDE_SESSION_LOG.md` for complete implementation history and troubleshooting guide.
+
 ## Common Pitfalls to Avoid
 
 - **Audio permissions:** Must request microphone permission on Android (handle in AudioService.initialize())
 - **Emulator limitations:** Always test audio features on physical device
+- **Native audio:** Only works on Android - native implementation uses Android AudioRecord API
+- **Audio source support:** `UNPROCESSED` requires API 29+, may not work on all devices
 - **FFT window size:** 2048 samples balances time/frequency resolution for rhythm detection
 - **Onset threshold tuning:** Will require experimentation with real recordings
+- **AGC behavior:** Different devices have different AGC implementations
 - **API key security:** Never commit config.dart with real API keys
 - **File cleanup:** Ensure old audio files deleted when sessions removed
 - **State synchronization:** Always call notifyListeners() after state changes in controllers
+- **Platform channels:** Ensure MainActivity is properly configured for method channel communication
 
 ## Git and CI/CD Best Practices
 

@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(source venv/Scripts/activate)",
+      "Bash(pip install:*)",
+      "Bash(PIP_NO_BUILD_ISOLATION=false pip install:*)",
+      "Bash(pip uninstall:*)",
+      "Bash(py --list:*)",
+      "Bash(mv:*)",
+      "Bash(py -3.10 -m venv:*)",
+      "Bash(python -m pip:*)",
+      "Bash(python -c:*)",
+      "Bash(pip show:*)",
+      "Bash(python fix_madmom.py:*)",
+      "Bash(python test_aubio.py:*)",
+      "Bash(ls:*)",
+      "Bash(python test_basic_pitch.py)",
+      "Bash(python test_madmom.py:*)",
+      "Bash(python analyze_drum_practice.py:*)",
+      "Bash(python:*)",
+      "Bash(adb devices:*)",
+      "Bash(adb shell:*)",
+      "Bash(adb shell \"run-as com.example.ai_rhythm_coach ls -lh app_flutter/\")",
+      "Bash(flutter build:*)",
+      "Bash(C:UsersibcveAppDataLocalAndroidSdkcmdline-toolslatestbinsdkmanager.bat --licenses)",
+      "Bash(flutter run:*)",
+      "Bash(cmd.exe /c \"dir /s /b C:\\\\Users\\\\ibcve\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\sdkmanager* 2>nul\")",
+      "Bash(adb install:*)",
+      "Bash(git checkout:*)",
+      "Bash(timeout:*)",
+      "Bash(adb kill-server:*)",
+      "Bash(adb start-server:*)"
+    ]
+  }
+}

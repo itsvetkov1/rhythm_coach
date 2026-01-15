@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../controllers/practice_controller.dart';
-import '../models/session.dart';
 import '../widgets/stat_card.dart';
 import '../widgets/timing_breakdown.dart';
 import '../widgets/coaching_feedback.dart';

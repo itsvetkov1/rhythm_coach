@@ -8,7 +8,7 @@ plugins {
 android {
     namespace = "com.rhythmcoach.ai_rhythm_coach"
     compileSdk = 35  // Required by flutter_sound
-    ndkVersion = "27.0.12077973"  // Required by flutter_sound and other plugins
+    // ndkVersion = "27.0.12077973"  // Required by flutter_sound and other plugins - temporarily commented out
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
