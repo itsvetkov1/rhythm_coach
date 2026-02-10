@@ -55,7 +55,6 @@ class MyApp extends StatelessWidget {
             audioService: context.read<AudioService>(),
             rhythmAnalyzer: context.read<RhythmAnalyzer>(),
             aiCoachingService: context.read<AICoachingService>(),
-            aiCoachingService: context.read<AICoachingService>(),
             sessionManager: context.read<SessionManager>(),
             calibrationService: context.read<CalibrationService>(),
           ),
