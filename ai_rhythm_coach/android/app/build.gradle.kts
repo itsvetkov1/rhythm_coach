@@ -7,8 +7,8 @@ plugins {
 
 android {
     namespace = "com.rhythmcoach.ai_rhythm_coach"
-    compileSdk = 35  // Required by flutter_sound
-    ndkVersion = "27.0.12077973"  // Required by flutter_sound and other plugins
+    compileSdk = 35  // Android SDK 35
+    ndkVersion = "27.0.12077973"  // Required by native plugins
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -24,7 +24,7 @@ android {
         applicationId = "com.rhythmcoach.ai_rhythm_coach"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = 24  // Required minimum for flutter_sound and dependencies
+        minSdk = 24  // Required minimum for audio plugins
         targetSdk = 35  // Match compileSdk
         versionCode = flutter.versionCode
         versionName = flutter.versionName
