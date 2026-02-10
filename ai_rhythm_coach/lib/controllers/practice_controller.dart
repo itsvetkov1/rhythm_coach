@@ -23,7 +23,6 @@ class PracticeController extends ChangeNotifier {
   final AudioService _audioService;
   final RhythmAnalyzer _rhythmAnalyzer;
   final AICoachingService _aiCoachingService;
-  final AICoachingService _aiCoachingService;
   final SessionManager _sessionManager;
   final CalibrationService _calibrationService;
 
@@ -93,12 +92,8 @@ class PracticeController extends ChangeNotifier {
           ? DateTime.now().difference(_recordingStartTime!).inSeconds
           : 60;
 
-      // Process results
-      await _processSession(audioFilePath, actualDuration);
-    } catch (e) {
-      _handleError(e);
-    }
-  }
+      // Validate the recorded WAV file
+      await _audioService.validateWavFile(audioFilePath, expectedDurationSec: actualDuration);
 
       // Process results
       await _processSession(audioFilePath, actualDuration);
@@ -208,8 +203,6 @@ class PracticeController extends ChangeNotifier {
     if (error is AudioRecordingException) {
       _errorMessage = error.message;
     } else if (error is AIServiceException) {
-      _errorMessage = error.message;
-    } else if (error is MetronomeBleedException) {
       _errorMessage = error.message;
     } else {
       _errorMessage = 'An unexpected error occurred: ${error.toString()}';

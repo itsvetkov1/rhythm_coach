@@ -188,4 +188,68 @@ class AudioService {
   ///
   /// Returns false for now -- playback of recordings is not needed in Phase 1.
   bool get isPlaying => false;
+
+  /// Validates a WAV file has correct headers and non-empty PCM16 audio data.
+  /// Throws AudioRecordingException if validation fails.
+  Future<void> validateWavFile(String filePath, {int? expectedDurationSec}) async {
+    final file = File(filePath);
+
+    if (!await file.exists()) {
+      throw AudioRecordingException('Recording file not found: $filePath');
+    }
+
+    final bytes = await file.readAsBytes();
+
+    // Minimum WAV header is 44 bytes
+    if (bytes.length < 44) {
+      throw AudioRecordingException(
+        'Recording file too small (${bytes.length} bytes) - likely empty or corrupt');
+    }
+
+    // Check RIFF header
+    final riff = String.fromCharCodes(bytes.sublist(0, 4));
+    final wave = String.fromCharCodes(bytes.sublist(8, 12));
+    if (riff != 'RIFF' || wave != 'WAVE') {
+      throw AudioRecordingException(
+        'Invalid WAV file - missing RIFF/WAVE headers');
+    }
+
+    // Find and validate data chunk
+    int offset = 12;
+    bool foundData = false;
+    while (offset < bytes.length - 8) {
+      final chunkId = String.fromCharCodes(bytes.sublist(offset, offset + 4));
+      final chunkSize = bytes[offset + 4] |
+          (bytes[offset + 5] << 8) |
+          (bytes[offset + 6] << 16) |
+          (bytes[offset + 7] << 24);
+
+      if (chunkId == 'data') {
+        foundData = true;
+        if (chunkSize <= 0) {
+          throw AudioRecordingException(
+            'WAV file has empty data chunk - no audio was recorded');
+        }
+
+        // Check expected size if duration provided
+        // WAV at 44100 Hz, 16-bit mono = ~88200 bytes/sec
+        if (expectedDurationSec != null) {
+          final expectedMinSize = (expectedDurationSec * 44100 * 2 * 0.5).toInt();
+          if (chunkSize < expectedMinSize) {
+            print('WARNING: Recording shorter than expected '
+                '($chunkSize bytes, expected ~${expectedDurationSec * 88200} bytes for ${expectedDurationSec}s)');
+          }
+        }
+        break;
+      }
+
+      offset += 8 + chunkSize;
+      if (chunkSize % 2 == 1) offset += 1; // WAV chunks are word-aligned
+    }
+
+    if (!foundData) {
+      throw AudioRecordingException(
+        'Invalid WAV file - no data chunk found');
+    }
+  }
 }
