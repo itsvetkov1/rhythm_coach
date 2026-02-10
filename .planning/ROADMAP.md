@@ -28,11 +28,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. Metronome clicks are audible during recording and do not bleed into the recorded audio file
   3. Audio session routing is configured so playback and recording happen simultaneously without conflict
   4. After recording completes, the saved file is non-empty, has correct WAV headers, and contains audible PCM16 audio data
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
+- [ ] 01-01-PLAN.md -- Replace flutter_sound with record + metronome packages, rewrite AudioService
+- [ ] 01-02-PLAN.md -- Fix PracticeController/main.dart bugs, add WAV validation, verify build
 
 ### Phase 2: Onset Detection
 **Goal**: Beat hits in recorded audio are accurately identified and matched to expected beat times
@@ -80,7 +80,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Audio Recording | 0/TBD | Not started | - |
+| 1. Audio Recording | 0/2 | Planned | - |
 | 2. Onset Detection | 0/TBD | Not started | - |
 | 3. Latency Calibration | 0/TBD | Not started | - |
 | 4. Results Display | 0/TBD | Not started | - |
