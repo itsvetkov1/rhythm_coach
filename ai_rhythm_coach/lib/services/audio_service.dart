@@ -1,11 +1,10 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:flutter/services.dart' show rootBundle;
-import 'package:flutter_sound/flutter_sound.dart';
+import 'package:record/record.dart';
+import 'package:metronome/metronome.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:device_info_plus/device_info_plus.dart';
 
 class AudioRecordingException implements Exception {
   final String message;
@@ -15,269 +14,178 @@ class AudioRecordingException implements Exception {
 }
 
 class AudioService {
-  FlutterSoundRecorder? _recorder;
-  FlutterSoundPlayer? _player;
-  Timer? _metronomeTimer;
-  int _beatCount = 0;
+  AudioRecorder? _recorder;
+  final Metronome _metronome = Metronome();
   String? _currentRecordingPath;
-  String? _clickHighPath;
-  String? _clickLowPath;
-
   bool _isInitialized = false;
+  bool _isCurrentlyRecording = false;
+  StreamSubscription<int>? _tickSubscription;
 
-  // Initialize audio session
+  /// Initialize audio session, recorder, and metronome.
   Future<void> initialize() async {
     if (_isInitialized) return;
 
-    try {
-      // Request microphone permission
-      final status = await Permission.microphone.request();
-      if (!status.isGranted) {
-        throw AudioRecordingException(
-            'Microphone permission denied. Please enable it in settings.');
-      }
-
-      _recorder = FlutterSoundRecorder();
-      _player = FlutterSoundPlayer();
-
-      await _recorder!.openRecorder();
-      await _player!.openPlayer();
-
-      // Configure audio routing to ensure proper separation
-      await _configureAudioRouting();
-
-      _clickHighPath = await _loadAssetToLocalFile('assets/audio/click_high.wav', 'click_high.wav');
-      _clickLowPath = await _loadAssetToLocalFile('assets/audio/click_low.wav', 'click_low.wav');
-
-      _isInitialized = true;
-    } catch (e) {
-      throw AudioRecordingException('Failed to initialize audio: $e');
-    }
-  }
-
-  // Configure audio focus and routing for proper input/output separation
-  Future<void> _configureAudioRouting() async {
-    try {
-      // Get the audio session instance
-      final session = await AudioSession.instance;
-
-      // Configure audio session for simultaneous playback and recording
-      // We use a custom configuration based on speech/game requirements to ensure
-      // the microphone is not muted while audio is playing.
-      await session.configure(AudioSessionConfiguration(
-        avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
-        avAudioSessionCategoryOptions:
-            AVAudioSessionCategoryOptions.allowBluetooth |
-            AVAudioSessionCategoryOptions.allowBluetoothA2dp |
-            AVAudioSessionCategoryOptions.defaultToSpeaker,
-        avAudioSessionMode: AVAudioSessionMode.defaultMode,
-        avAudioSessionRouteSharingPolicy: AVAudioSessionRouteSharingPolicy.defaultPolicy,
-        avAudioSessionSetActiveOptions: AVAudioSessionSetActiveOptions.none,
-        androidAudioAttributes: const AndroidAudioAttributes(
-          contentType: AndroidAudioContentType.music,
-          flags: AndroidAudioFlags.none,
-          usage: AndroidAudioUsage.media,
-        ),
-        androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
-        androidWillPauseWhenDucked: true,
-      ));
-
-      print('AudioService: ✓ Audio session configured successfully');
-      print('AudioService: Category: playAndRecord (simultaneous playback + recording)');
-      print('AudioService: Metronome -> Headphones/Bluetooth | Microphone -> User recording only');
-      print('AudioService: Echo cancellation enabled via playAndRecord configuration');
-    } catch (e) {
-      print('AudioService: ⚠ Failed to configure audio session: $e');
-      print('AudioService: App will attempt to use default routing');
-      // Don't throw - allow app to continue, routing may still work with defaults
-    }
-  }
-
-  Future<String> _loadAssetToLocalFile(String assetPath, String filename) async {
-    final dir = await getTemporaryDirectory();
-    final file = File('${dir.path}/$filename');
-    if (await file.exists()) return file.path;
-    final byteData = await rootBundle.load(assetPath);
-    await file.writeAsBytes(byteData.buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes));
-    return file.path;
-  }
-
-  // Cleanup resources
-  Future<void> dispose() async {
-    _metronomeTimer?.cancel();
-    _metronomeTimer = null;
-
-    if (_recorder != null) {
-      if (_recorder!.isRecording) {
-        await _recorder!.stopRecorder();
-      }
-      await _recorder!.closeRecorder();
-      _recorder = null;
+    // Request microphone permission
+    final status = await Permission.microphone.request();
+    if (!status.isGranted) {
+      throw AudioRecordingException(
+          'Microphone permission denied. Please enable it in settings.');
     }
 
-    if (_player != null) {
-      if (_player!.isPlaying) {
-        await _player!.stopPlayer();
-      }
-      await _player!.closePlayer();
-      _player = null;
-    }
+    // Create recorder
+    _recorder = AudioRecorder();
 
-    _isInitialized = false;
+    // Initialize metronome with custom click sounds
+    await _metronome.init(
+      'assets/audio/click_low.wav',
+      accentedPath: 'assets/audio/click_high.wav',
+      bpm: 120,
+      volume: 100,
+      enableTickCallback: true,
+      timeSignature: 4,
+      sampleRate: 44100,
+    );
+
+    // Configure audio session AFTER constructing recorder and metronome
+    await _configureAudioSession();
+
+    _isInitialized = true;
   }
 
-  // Play 4-beat count-in
+  /// Configure audio session for simultaneous recording and playback.
+  Future<void> _configureAudioSession() async {
+    final session = await AudioSession.instance;
+    await session.configure(AudioSessionConfiguration(
+      avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
+      avAudioSessionCategoryOptions:
+          AVAudioSessionCategoryOptions.allowBluetooth |
+              AVAudioSessionCategoryOptions.defaultToSpeaker,
+      avAudioSessionMode: AVAudioSessionMode.defaultMode,
+      androidAudioAttributes: const AndroidAudioAttributes(
+        contentType: AndroidAudioContentType.music,
+        usage: AndroidAudioUsage.media,
+      ),
+      androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
+    ));
+  }
+
+  /// Play a 4-beat count-in using the metronome, then leave metronome running.
+  ///
+  /// The metronome continues playing after count-in completes so recording
+  /// starts with the metronome already running.
   Future<void> playCountIn(int bpm) async {
     if (!_isInitialized) {
       throw AudioRecordingException('AudioService not initialized');
     }
 
-    final interval = Duration(milliseconds: (60000 / bpm).round());
+    await _metronome.setBPM(bpm);
 
-    for (int i = 0; i < 4; i++) {
-      try {
-        // Play high click for count-in
-        await _player!.startPlayer(
-          fromURI: _clickHighPath,
-          codec: Codec.pcm16WAV,
-          whenFinished: () {},
-        );
-        await Future.delayed(interval);
-      } catch (e) {
-        throw AudioRecordingException('Failed to play count-in: $e');
+    final completer = Completer<void>();
+    int countInBeats = 0;
+
+    _tickSubscription = _metronome.tickStream.listen((int tick) {
+      countInBeats++;
+      if (countInBeats >= 4 && !completer.isCompleted) {
+        completer.complete();
       }
-    }
+    });
+
+    await _metronome.play();
+    await completer.future;
+    await _tickSubscription?.cancel();
+    _tickSubscription = null;
+    // Metronome keeps playing -- recording starts now
   }
 
-  // Start recording to file
+  /// Start recording audio to a WAV file.
+  ///
+  /// Records mono 44100 Hz PCM16 WAV with all DSP disabled (echoCancel,
+  /// noiseSuppress, autoGain) to preserve onset transients for RhythmAnalyzer.
   Future<void> startRecording() async {
     if (!_isInitialized) {
       throw AudioRecordingException('AudioService not initialized');
     }
 
-    try {
-      final directory = await getApplicationDocumentsDirectory();
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      _currentRecordingPath = '${directory.path}/recording_$timestamp.wav';
+    final directory = await getApplicationDocumentsDirectory();
+    _currentRecordingPath =
+        '${directory.path}/recording_${DateTime.now().millisecondsSinceEpoch}.wav';
 
-      // Log device info
-      if (Platform.isAndroid) {
-        final deviceInfo = DeviceInfoPlugin();
-        final androidInfo = await deviceInfo.androidInfo;
-        print('AudioService: Recording on device: ${androidInfo.manufacturer} ${androidInfo.model} (${androidInfo.device})');
-      }
+    const config = RecordConfig(
+      encoder: AudioEncoder.wav,
+      sampleRate: 44100,
+      numChannels: 1,
+      bitRate: 128000,
+      echoCancel: false,
+      noiseSuppress: false,
+      autoGain: false,
+    );
 
-      print('AudioService: Starting recording to $_currentRecordingPath');
-
-      await _recorder!.startRecorder(
-        toFile: _currentRecordingPath,
-        codec: Codec.pcm16WAV,
-      );
-      print('AudioService: Recorder started successfully');
-    } catch (e) {
-      print('AudioService: Failed to start recording: $e');
-      throw AudioRecordingException('Failed to start recording: $e');
-    }
+    await _recorder!.start(config, path: _currentRecordingPath!);
+    _isCurrentlyRecording = true;
   }
 
-  // Stop recording and return file path
+  /// Stop recording and return the path to the WAV file.
+  ///
+  /// Validates that the file exists and is non-empty before returning.
   Future<String> stopRecording() async {
     if (!_isInitialized) {
       throw AudioRecordingException('AudioService not initialized');
     }
 
-    try {
-      await _recorder!.stopRecorder();
-      print('AudioService: Recording stopped');
-      if (_currentRecordingPath == null) {
-        throw AudioRecordingException('No recording path available');
-      }
+    final path = await _recorder!.stop();
+    _isCurrentlyRecording = false;
 
-      // Verify the file exists and has content
-      final file = File(_currentRecordingPath!);
-      if (await file.exists()) {
-        final fileSize = await file.length();
-        print('AudioService: Recording saved to $_currentRecordingPath');
-        print('AudioService: File size: $fileSize bytes');
-
-        if (fileSize < 100) {
-          print('WARNING: Recording file is very small ($fileSize bytes) - may be empty or corrupted');
-        }
-      } else {
-        print('ERROR: Recording file does not exist at $_currentRecordingPath');
-        throw AudioRecordingException('Recording file was not created');
-      }
-
-      return _currentRecordingPath!;
-    } catch (e) {
-      print('AudioService: Failed to stop recording: $e');
-      throw AudioRecordingException('Failed to stop recording: $e');
+    if (path == null || path.isEmpty) {
+      throw AudioRecordingException(
+          'Recording failed - no file path returned');
     }
+
+    // Verify file exists and has meaningful content
+    final file = File(path);
+    if (!await file.exists()) {
+      throw AudioRecordingException(
+          'Recording file was not created at: $path');
+    }
+
+    final fileSize = await file.length();
+    if (fileSize < 100) {
+      throw AudioRecordingException(
+          'Recording file is too small ($fileSize bytes) - may be empty or corrupted');
+    }
+
+    return path;
   }
 
-  // Start metronome click track
+  /// Start the metronome at the given BPM.
+  ///
+  /// This is separate from count-in. Used when metronome needs to be
+  /// started or restarted independently.
   Future<void> startMetronome(int bpm) async {
-    if (!_isInitialized) {
-      throw AudioRecordingException('AudioService not initialized');
-    }
-
-    final interval = Duration(milliseconds: (60000 / bpm).round());
-    _beatCount = 0;
-
-    _metronomeTimer = Timer.periodic(interval, (timer) async {
-      _beatCount++;
-
-      try {
-        // Play high click on beat 1, low click on others
-        final clickFile = (_beatCount % 4 == 1)
-            ? _clickHighPath
-            : _clickLowPath;
-
-        await _player!.startPlayer(
-          fromURI: clickFile,
-          codec: Codec.pcm16WAV,
-          whenFinished: () {},
-        );
-      } catch (e) {
-        // Continue metronome even if one click fails
-      }
-    });
+    await _metronome.setBPM(bpm);
+    await _metronome.play();
   }
 
-  // Stop metronome
+  /// Stop (pause) the metronome.
   Future<void> stopMetronome() async {
-    _metronomeTimer?.cancel();
-    _metronomeTimer = null;
-    _beatCount = 0;
+    await _metronome.pause();
   }
 
-  // Play recorded audio file
-  Future<void> playRecording(String filePath) async {
-    if (!_isInitialized) {
-      throw AudioRecordingException('AudioService not initialized');
-    }
-
-    try {
-      await _player!.startPlayer(
-        fromURI: filePath,
-        codec: Codec.pcm16WAV,
-        whenFinished: () {},
-      );
-    } catch (e) {
-      throw AudioRecordingException('Failed to play recording: $e');
-    }
+  /// Dispose all audio resources.
+  Future<void> dispose() async {
+    await _tickSubscription?.cancel();
+    _tickSubscription = null;
+    await _metronome.stop();
+    await _recorder?.dispose();
+    _recorder = null;
+    _isCurrentlyRecording = false;
+    _isInitialized = false;
   }
 
-  // Stop playback
-  Future<void> stopPlayback() async {
-    if (_player != null && _player!.isPlaying) {
-      await _player!.stopPlayer();
-    }
-  }
+  /// Whether a recording session is currently active.
+  bool get isRecording => _isCurrentlyRecording;
 
-  // Check if currently recording
-  bool get isRecording => _recorder?.isRecording ?? false;
-
-  // Check if currently playing
-  bool get isPlaying => _player?.isPlaying ?? false;
+  /// Whether audio playback is active.
+  ///
+  /// Returns false for now -- playback of recordings is not needed in Phase 1.
+  bool get isPlaying => false;
 }
