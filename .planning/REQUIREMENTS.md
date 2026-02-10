@@ -53,10 +53,10 @@ Explicitly excluded. Documented to prevent scope creep.
 
 | Feature | Reason |
 |---------|--------|
-| AI coaching feedback | Deferring until audio pipeline is solid — can't coach on bad data |
+| AI coaching feedback | Deferring until audio pipeline is solid -- can't coach on bad data |
 | Session persistence | Not needed until core loop works |
 | iOS support | Android only for MVP |
-| Multiple time signatures | 4/4 only — reduces analysis complexity |
+| Multiple time signatures | 4/4 only -- reduces analysis complexity |
 | Variable session duration | Fixed 60-second sessions |
 | Play Store publishing | Stabilize first |
 | Real-time visual feedback | Technically complex, post-practice analysis sufficient |
@@ -69,22 +69,22 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUD-01 | TBD | Pending |
-| AUD-02 | TBD | Pending |
-| AUD-03 | TBD | Pending |
-| AUD-04 | TBD | Pending |
-| RHY-01 | TBD | Pending |
-| RHY-02 | TBD | Pending |
-| RHY-03 | TBD | Pending |
-| RES-01 | TBD | Pending |
-| RES-02 | TBD | Pending |
-| RES-03 | TBD | Pending |
+| AUD-01 | Phase 1: Audio Recording | Pending |
+| AUD-02 | Phase 1: Audio Recording | Pending |
+| AUD-03 | Phase 1: Audio Recording | Pending |
+| AUD-04 | Phase 1: Audio Recording | Pending |
+| RHY-01 | Phase 2: Onset Detection | Pending |
+| RHY-02 | Phase 2: Onset Detection | Pending |
+| RHY-03 | Phase 3: Latency Calibration | Pending |
+| RES-01 | Phase 4: Results Display | Pending |
+| RES-02 | Phase 4: Results Display | Pending |
+| RES-03 | Phase 4: Results Display | Pending |
 
 **Coverage:**
 - v1 requirements: 10 total
-- Mapped to phases: 0
-- Unmapped: 10
+- Mapped to phases: 10
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-10*
-*Last updated: 2026-02-10 after initial definition*
+*Last updated: 2026-02-10 after roadmap creation*
