@@ -14,9 +14,9 @@ class RhythmAnalyzer {
   static const int fftSize = 2048;
   static const int hopSize = 512;
   static const double sampleRate = 44100;
-  static const double onsetThreshold = 0.12; // Threshold for normalized spectral flux (lowered for maximum sensitivity)
   static const double minSignalEnergy = 0.00003; // Minimum RMS energy (extremely sensitive to detect even soft claps)
   static const double noiseFloor = 0.00001; // Ignore samples below this threshold
+  static const double _gamma = 10.0; // Log compression strength
 
   // Analyze audio file for rhythm accuracy
   Future<List<TapEvent>> analyzeAudio({
@@ -36,69 +36,52 @@ class RhythmAnalyzer {
 
       // Check if recording has sufficient signal energy
       final rmsEnergy = _calculateRMS(samples);
-      final maxAmplitude = samples.map((s) => s.abs()).reduce((a, b) => a > b ? a : b);
       final duration = samples.length / sampleRate;
 
-      print('DEBUG: ========== Audio Analysis Debug Info ==========');
-      print('DEBUG: Total samples loaded: ${samples.length}');
-      print('DEBUG: Duration: ${duration.toStringAsFixed(2)}s');
-      print('DEBUG: Recording RMS energy: ${rmsEnergy.toStringAsFixed(6)}');
-      print('DEBUG: Max amplitude: ${maxAmplitude.toStringAsFixed(6)}');
-      print('DEBUG: Minimum required energy: ${minSignalEnergy.toStringAsFixed(6)}');
-      print('DEBUG: Energy check: ${rmsEnergy >= minSignalEnergy ? "PASS" : "FAIL"}');
+      print('Audio analysis: ${samples.length} samples, ${duration.toStringAsFixed(2)}s, RMS=${rmsEnergy.toStringAsFixed(6)}');
 
       if (rmsEnergy < minSignalEnergy) {
-        // Recording is too quiet or silent - no valid performance detected
         print('WARNING: Recording energy too low (RMS: ${rmsEnergy.toStringAsFixed(6)}). '
             'Please tap louder or check microphone.');
-        print('DEBUG: ================================================');
         return [];
       }
 
-      // Detect onset times (in seconds)
-      // Detect onset times (in seconds)
-      final rawOnsetTimes = _detectOnsets(samples);
-      print('DEBUG: Detected ${rawOnsetTimes.length} raw onsets');
-      
+      // Detect onset times (in seconds) using adaptive thresholding
+      final rawOnsetTimes = _detectOnsets(samples, bpm);
+
       // Apply latency compensation
       final double latencySeconds = latencyOffsetMs / 1000.0;
       final onsetTimes = rawOnsetTimes.map((t) => t - latencySeconds).toList();
-      
-      if (onsetTimes.isNotEmpty) {
-        print('DEBUG: First few onset times (corrected): ${onsetTimes.take(10).map((t) => t.toStringAsFixed(3)).toList()}');
-        print('DEBUG: Applied latency offset: ${latencyOffsetMs}ms');
-      }
 
       // Generate expected beat times
       final expectedBeats = _generateExpectedBeats(bpm, durationSeconds);
-      print('DEBUG: Expected ${expectedBeats.length} beats for ${durationSeconds}s at $bpm BPM');
 
       // Match onsets to nearest expected beats
       final tapEvents = _matchOnsetsToBeats(onsetTimes, expectedBeats);
-      print('DEBUG: Matched ${tapEvents.length} beats (${((tapEvents.length / expectedBeats.length) * 100).toStringAsFixed(1)}% of expected)');
-      print('DEBUG: ================================================');
 
-      // Check for metronome bleed (extremely high consistency)
-      // Machine-generated audio loopback (bleed) has near-zero variance (< 1ms).
-      // Human playing, even professional, rarely achieves < 5-10ms consistency over 60s.
+      print('Onset detection: ${rawOnsetTimes.length} onsets, matched ${tapEvents.length}/${expectedBeats.length} beats (${((tapEvents.length / expectedBeats.length) * 100).toStringAsFixed(1)}%)');
+
       // Check for metronome bleed (extremely high consistency)
       // Machine-generated audio loopback (bleed) has near-zero variance (< 1ms).
       // Human playing, even professional, rarely achieves < 5-10ms consistency over 60s.
       if (checkBleed && tapEvents.isNotEmpty) {
         final consistency = calculateConsistency(tapEvents);
         if (consistency < 3.0) {
-          // It's likely the microphone hearing the metronome speaker
           throw MetronomeBleedException(
               'Metronome bleed detected (Consistency: ${consistency.toStringAsFixed(2)}ms). Please use headphones to prevent the microphone from picking up the metronome.');
         }
       }
 
       return tapEvents;
-    } catch (e, stackTrace) {
-      // Log error and return empty list if analysis fails
-      print('ERROR: Rhythm analysis failed: $e');
-      print('Stack trace: $stackTrace');
+    } on MetronomeBleedException {
+      rethrow;
+    } on FileSystemException catch (e) {
+      print('ERROR: File system error during analysis: $e');
       return [];
+    } catch (e) {
+      // Re-throw unexpected errors so they surface during development
+      print('ERROR: Unexpected rhythm analysis failure: $e');
+      rethrow;
     }
   }
 
@@ -208,8 +191,10 @@ class RhythmAnalyzer {
     }
   }
 
-  // Detect onset times using FFT spectral flux
-  List<double> _detectOnsets(List<double> samples) {
+  // Detect onset times using FFT spectral flux with adaptive thresholding.
+  // Uses log-compressed magnitudes, adaptive threshold from local moving average,
+  // local maximum peak picking, and BPM-aware minimum inter-onset interval.
+  List<double> _detectOnsets(List<double> samples, int bpm) {
     final onsets = <double>[];
 
     if (samples.length < fftSize) {
@@ -217,75 +202,96 @@ class RhythmAnalyzer {
     }
 
     final fft = FFT(fftSize);
+    final hanningWindow = Window.hanning(fftSize);
     List<double>? previousMagnitudes;
 
-    // Sliding window FFT
-    for (int i = 0; i < samples.length - fftSize; i += hopSize) {
+    // Pass 1: Compute all spectral flux values and frame times
+    final fluxValues = <double>[];
+    final frameTimes = <double>[];
+
+    for (int i = 0; i <= samples.length - fftSize; i += hopSize) {
       final window = samples.sublist(i, i + fftSize);
 
-      // Apply Hanning window to reduce spectral leakage
-      final windowedSamples = _applyHanningWindow(window);
+      // Apply Hanning window using fftea's Window.hanning
+      final windowedSamples = hanningWindow.applyWindowReal(window);
 
       // Perform FFT
       final complexSpectrum = fft.realFft(windowedSamples);
 
-      // Calculate magnitudes
+      // Extract magnitudes with logarithmic compression for volume invariance
       final magnitudes = <double>[];
       for (int j = 0; j < complexSpectrum.length; j++) {
         final real = complexSpectrum[j].x;
         final imag = complexSpectrum[j].y;
-        magnitudes.add(sqrt(real * real + imag * imag));
+        final magnitude = sqrt(real * real + imag * imag);
+        magnitudes.add(log(1.0 + _gamma * magnitude));
       }
 
-      // Calculate spectral flux (difference from previous frame)
+      // Half-wave rectified spectral flux (only positive magnitude differences)
       if (previousMagnitudes != null) {
         double flux = 0.0;
-        double previousEnergy = 0.0;
-
-        // Calculate flux and previous frame energy
         for (int j = 0; j < magnitudes.length; j++) {
-          final diff = magnitudes[j] - previousMagnitudes[j];
-          // Only consider increases (positive differences)
+          final diff = magnitudes[j] - previousMagnitudes![j];
           if (diff > 0) {
             flux += diff;
           }
-          previousEnergy += previousMagnitudes[j];
         }
-
-        // Normalize flux by previous frame energy to handle varying volume levels
-        // Add small epsilon to avoid division by zero
-        final normalizedFlux = previousEnergy > 0
-            ? flux / (previousEnergy + 0.0001)
-            : 0.0;
-
-        // If normalized flux exceeds threshold, mark as onset
-        if (normalizedFlux > onsetThreshold) {
-          // Use center of the window for more accurate timing
-          final timeInSeconds = (i + fftSize / 2) / sampleRate;
-          // Avoid marking onsets too close together (minimum 50ms apart)
-          if (onsets.isEmpty || (timeInSeconds - onsets.last) > 0.05) {
-            onsets.add(timeInSeconds);
-          }
-        }
+        fluxValues.add(flux);
+        // Onset is between current and previous frame, use hop midpoint
+        frameTimes.add((i + hopSize / 2) / sampleRate);
       }
 
       previousMagnitudes = magnitudes;
     }
 
+    if (fluxValues.isEmpty) return onsets;
+
+    // Pass 2: Apply adaptive thresholding and peak picking
+    final thresholds = _adaptiveThreshold(fluxValues);
+    final minInterval = _minOnsetInterval(bpm);
+
+    for (int i = 1; i < fluxValues.length - 1; i++) {
+      if (fluxValues[i] > thresholds[i] && _isLocalMax(fluxValues, i)) {
+        final time = frameTimes[i];
+        if (onsets.isEmpty || (time - onsets.last) > minInterval) {
+          onsets.add(time);
+        }
+      }
+    }
+
     return onsets;
   }
 
-  // Apply Hanning window to reduce spectral leakage
-  List<double> _applyHanningWindow(List<double> samples) {
-    final windowed = <double>[];
-    final n = samples.length;
-
-    for (int i = 0; i < n; i++) {
-      final window = 0.5 * (1 - cos(2 * pi * i / (n - 1)));
-      windowed.add(samples[i] * window);
+  // Compute adaptive threshold as a moving average of spectral flux values
+  // multiplied by delta, plus a minimum floor offset.
+  List<double> _adaptiveThreshold(List<double> fluxValues, {
+    int preAvgFrames = 10,   // ~100ms lookback at 512 hop / 44100 Hz
+    int postAvgFrames = 3,   // ~30ms lookahead
+    double delta = 2.0,      // multiplier above local average
+    double offset = 0.01,    // minimum threshold floor
+  }) {
+    final thresholds = <double>[];
+    for (int i = 0; i < fluxValues.length; i++) {
+      final start = max(0, i - preAvgFrames);
+      final end = min(fluxValues.length, i + postAvgFrames + 1);
+      final windowSlice = fluxValues.sublist(start, end);
+      final avg = windowSlice.reduce((a, b) => a + b) / windowSlice.length;
+      thresholds.add(avg * delta + offset);
     }
+    return thresholds;
+  }
 
-    return windowed;
+  // BPM-aware minimum inter-onset interval to prevent double-triggers.
+  // At 200 BPM (300ms beats), minimum is 120ms. At 40 BPM (1500ms beats), minimum is 600ms.
+  double _minOnsetInterval(int bpm) {
+    final beatInterval = 60.0 / bpm;
+    return max(0.05, beatInterval * 0.4); // 40% of beat interval, min 50ms
+  }
+
+  // Check if flux[index] is a local maximum (greater than both neighbors)
+  bool _isLocalMax(List<double> flux, int index) {
+    if (index <= 0 || index >= flux.length - 1) return false;
+    return flux[index] > flux[index - 1] && flux[index] > flux[index + 1];
   }
 
   // Generate expected beat times for given BPM

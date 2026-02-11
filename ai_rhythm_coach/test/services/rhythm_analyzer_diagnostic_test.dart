@@ -185,6 +185,7 @@ void main() {
         audioFilePath: testFile.path,
         bpm: bpm,
         durationSeconds: durationSeconds,
+        checkBleed: false, // Synthetic data triggers bleed detection
       );
 
       print('Detected ${tapEvents.length} claps');
