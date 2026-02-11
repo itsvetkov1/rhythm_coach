@@ -288,6 +288,152 @@ void main() {
         expect(result, isNotNull);
       });
     });
+
+    group('BPM Range Detection', () {
+      for (final bpm in [40, 60, 80, 100, 120, 140, 160, 180, 200]) {
+        test('Should detect >= 80% of beats at $bpm BPM', () async {
+          final testFile = File('${tempDir.path}/bpm_$bpm.wav');
+          const durationSeconds = 10;
+          await _createTestWavWithBeats(testFile,
+              sampleRate: 44100, bpm: bpm, durationSeconds: durationSeconds);
+
+          final analyzer = RhythmAnalyzer();
+          final tapEvents = await analyzer.analyzeAudio(
+            audioFilePath: testFile.path,
+            bpm: bpm,
+            durationSeconds: durationSeconds,
+            checkBleed: false,
+          );
+
+          final expectedBeats = (durationSeconds * bpm / 60).floor();
+          final detectionRate = tapEvents.length / expectedBeats;
+
+          print('BPM $bpm: detected ${tapEvents.length}/$expectedBeats beats (${(detectionRate * 100).toStringAsFixed(1)}%)');
+
+          expect(detectionRate, greaterThanOrEqualTo(0.8),
+              reason: 'Should detect >= 80% of beats at $bpm BPM');
+
+          // No double-detection: detected count should not exceed 1.2x expected
+          expect(tapEvents.length, lessThanOrEqualTo((expectedBeats * 1.2).ceil()),
+              reason: 'Should not detect more than 120% of expected beats (double-detection) at $bpm BPM');
+        });
+      }
+    });
+
+    group('Amplitude Range Detection', () {
+      for (final entry in [
+        {'amplitude': 0.1, 'label': 'very soft'},
+        {'amplitude': 0.3, 'label': 'soft'},
+        {'amplitude': 0.5, 'label': 'medium'},
+        {'amplitude': 0.8, 'label': 'loud'},
+        {'amplitude': 1.0, 'label': 'maximum'},
+      ]) {
+        final amplitude = entry['amplitude'] as double;
+        final label = entry['label'] as String;
+
+        test('Should detect >= 80% of beats at $label amplitude ($amplitude)', () async {
+          final testFile = File('${tempDir.path}/amp_${label.replaceAll(' ', '_')}.wav');
+          const bpm = 120;
+          const durationSeconds = 5;
+          await _createTestWavWithBeats(testFile,
+              sampleRate: 44100, bpm: bpm, durationSeconds: durationSeconds,
+              amplitude: amplitude);
+
+          final analyzer = RhythmAnalyzer();
+          final tapEvents = await analyzer.analyzeAudio(
+            audioFilePath: testFile.path,
+            bpm: bpm,
+            durationSeconds: durationSeconds,
+            checkBleed: false,
+          );
+
+          final expectedBeats = (durationSeconds * bpm / 60).floor();
+          final detectionRate = tapEvents.length / expectedBeats;
+
+          print('Amplitude $amplitude ($label): detected ${tapEvents.length}/$expectedBeats beats (${(detectionRate * 100).toStringAsFixed(1)}%)');
+
+          expect(detectionRate, greaterThanOrEqualTo(0.8),
+              reason: 'Should detect >= 80% of $label taps (amplitude $amplitude)');
+        });
+      }
+    });
+
+    group('Timing Accuracy', () {
+      test('Average timing error should be < 50ms for on-beat synthetic impulses at 120 BPM', () async {
+        final testFile = File('${tempDir.path}/timing_accuracy.wav');
+        const bpm = 120;
+        const durationSeconds = 10;
+        await _createTestWavWithBeats(testFile,
+            sampleRate: 44100, bpm: bpm, durationSeconds: durationSeconds);
+
+        final analyzer = RhythmAnalyzer();
+        final tapEvents = await analyzer.analyzeAudio(
+          audioFilePath: testFile.path,
+          bpm: bpm,
+          durationSeconds: durationSeconds,
+          checkBleed: false,
+        );
+
+        expect(tapEvents.length, greaterThan(5),
+            reason: 'Need enough beats to measure timing accuracy');
+
+        final avgError = RhythmAnalyzer.calculateAverageError(tapEvents);
+        print('Timing accuracy at 120 BPM: avg error = ${avgError.toStringAsFixed(1)}ms over ${tapEvents.length} beats');
+
+        expect(avgError, lessThan(50),
+            reason: 'Average timing error should be < 50ms for perfectly-timed synthetic impulses');
+      });
+
+      test('Average timing error should be < 50ms at 60 BPM (slow tempo)', () async {
+        final testFile = File('${tempDir.path}/timing_60bpm.wav');
+        const bpm = 60;
+        const durationSeconds = 10;
+        await _createTestWavWithBeats(testFile,
+            sampleRate: 44100, bpm: bpm, durationSeconds: durationSeconds);
+
+        final analyzer = RhythmAnalyzer();
+        final tapEvents = await analyzer.analyzeAudio(
+          audioFilePath: testFile.path,
+          bpm: bpm,
+          durationSeconds: durationSeconds,
+          checkBleed: false,
+        );
+
+        expect(tapEvents.length, greaterThan(3),
+            reason: 'Need enough beats to measure timing accuracy');
+
+        final avgError = RhythmAnalyzer.calculateAverageError(tapEvents);
+        print('Timing accuracy at 60 BPM: avg error = ${avgError.toStringAsFixed(1)}ms over ${tapEvents.length} beats');
+
+        expect(avgError, lessThan(50),
+            reason: 'Average timing error should be < 50ms for perfectly-timed synthetic impulses');
+      });
+
+      test('Average timing error should be < 50ms at 200 BPM (fast tempo)', () async {
+        final testFile = File('${tempDir.path}/timing_200bpm.wav');
+        const bpm = 200;
+        const durationSeconds = 10;
+        await _createTestWavWithBeats(testFile,
+            sampleRate: 44100, bpm: bpm, durationSeconds: durationSeconds);
+
+        final analyzer = RhythmAnalyzer();
+        final tapEvents = await analyzer.analyzeAudio(
+          audioFilePath: testFile.path,
+          bpm: bpm,
+          durationSeconds: durationSeconds,
+          checkBleed: false,
+        );
+
+        expect(tapEvents.length, greaterThan(10),
+            reason: 'Need enough beats to measure timing accuracy');
+
+        final avgError = RhythmAnalyzer.calculateAverageError(tapEvents);
+        print('Timing accuracy at 200 BPM: avg error = ${avgError.toStringAsFixed(1)}ms over ${tapEvents.length} beats');
+
+        expect(avgError, lessThan(50),
+            reason: 'Average timing error should be < 50ms for perfectly-timed synthetic impulses');
+      });
+    });
   });
 }
 
@@ -336,4 +482,31 @@ Future<void> _createWavFile(File file, List<int> samples, int sampleRate) async 
   }
 
   await file.writeAsBytes(buffer.buffer.asUint8List());
+}
+
+/// Creates a WAV file with broadband impulses at regular beat intervals.
+/// Uses a decaying envelope for more realistic onset characteristics.
+Future<void> _createTestWavWithBeats(
+  File file, {
+  required int sampleRate,
+  required int bpm,
+  required int durationSeconds,
+  double amplitude = 0.8,
+}) async {
+  final beatInterval = 60.0 / bpm;
+  final samples = List<int>.filled(sampleRate * durationSeconds, 0);
+
+  for (double beatTime = 0.0; beatTime < durationSeconds; beatTime += beatInterval) {
+    final sampleIndex = (beatTime * sampleRate).round();
+    // Broadband impulse with linear decay envelope (more realistic than pure sine)
+    for (int i = 0; i < 200; i++) {
+      if (sampleIndex + i < samples.length) {
+        final envelope = 1.0 - (i / 200.0);
+        final signal = amplitude * 32000 * envelope * sin(2 * pi * 800 * i / sampleRate);
+        samples[sampleIndex + i] = signal.round();
+      }
+    }
+  }
+
+  await _createWavFile(file, samples, sampleRate);
 }
