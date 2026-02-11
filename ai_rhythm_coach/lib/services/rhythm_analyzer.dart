@@ -231,7 +231,7 @@ class RhythmAnalyzer {
       if (previousMagnitudes != null) {
         double flux = 0.0;
         for (int j = 0; j < magnitudes.length; j++) {
-          final diff = magnitudes[j] - previousMagnitudes![j];
+          final diff = magnitudes[j] - previousMagnitudes[j];
           if (diff > 0) {
             flux += diff;
           }
