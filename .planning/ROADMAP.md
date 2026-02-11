@@ -42,10 +42,11 @@ Plans:
   1. FFT-based spectral flux analysis detects onset times that correspond to actual drum hits in a recording
   2. Each detected onset is matched to the nearest expected beat time and the timing error (early/late in milliseconds) is calculated
   3. Detection works across a range of tap volumes (soft to loud) and BPM settings (40-200)
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 02-01: TBD
+- [ ] 02-01-PLAN.md -- Refactor RhythmAnalyzer with adaptive thresholding, log compression, BPM-aware inter-onset interval, peak picking
+- [ ] 02-02-PLAN.md -- Expand test suite for BPM range (40-200) and amplitude range (soft-to-loud) validation
 
 ### Phase 3: Latency Calibration
 **Goal**: Device-specific audio latency is measured and compensated so users are not blamed for hardware delays
@@ -81,6 +82,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Audio Recording | 2/2 | Complete | 2026-02-11 |
-| 2. Onset Detection | 0/TBD | Not started | - |
+| 2. Onset Detection | 0/2 | In progress | - |
 | 3. Latency Calibration | 0/TBD | Not started | - |
 | 4. Results Display | 0/TBD | Not started | - |
