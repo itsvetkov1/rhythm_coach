@@ -11,10 +11,10 @@ jobs:
   build:
     name: Build Debug APK
     runs-on: ubuntu-latest
-    # Skip build for documentation-only commits
+    # Only build when commit message contains /test-build or manually triggered
     if: |
-      !startsWith(github.event.head_commit.message, '[docs]') &&
-      !startsWith(github.event.head_commit.message, '[skip ci]')
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.head_commit.message, '/test-build')
 
     steps:
       - name: Checkout code
