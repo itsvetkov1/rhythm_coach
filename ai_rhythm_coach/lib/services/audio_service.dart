@@ -75,17 +75,17 @@ class AudioService {
 
   /// Play a 4-beat count-in using the metronome, then leave metronome running.
   ///
-  /// Uses timer-based waiting instead of tickStream because the metronome
-  /// package has a race condition where tickStream events may not fire
-  /// (native init not awaited → play() silently fails → no ticks emitted).
-  /// Timer-based count-in is reliable for 4 beats and drift is negligible.
+  /// IMPORTANT: All metronome method calls are fire-and-forget (unawaited).
+  /// The metronome package's native Android code never calls result.success()
+  /// on the method channel, so awaiting any metronome Future hangs forever.
   Future<void> playCountIn(int bpm) async {
     if (!_isInitialized) {
       throw AudioRecordingException('AudioService not initialized');
     }
 
-    await _metronome.setBPM(bpm);
-    await _metronome.play();
+    // Fire-and-forget — do NOT await (see class-level note)
+    _metronome.setBPM(bpm);
+    _metronome.play();
 
     // Wait for exactly 4 beats based on BPM timing
     final beatDurationMs = (60000 / bpm).round();
@@ -157,18 +157,21 @@ class AudioService {
   /// This is separate from count-in. Used when metronome needs to be
   /// started or restarted independently.
   Future<void> startMetronome(int bpm) async {
-    await _metronome.setBPM(bpm);
-    await _metronome.play();
+    // Fire-and-forget — do NOT await (native never calls result.success())
+    _metronome.setBPM(bpm);
+    _metronome.play();
   }
 
   /// Stop (pause) the metronome.
   Future<void> stopMetronome() async {
-    await _metronome.pause();
+    // Fire-and-forget — do NOT await (native never calls result.success())
+    _metronome.pause();
   }
 
   /// Dispose all audio resources.
   Future<void> dispose() async {
-    await _metronome.stop();
+    // Fire-and-forget — do NOT await (native never calls result.success())
+    _metronome.stop();
     await _recorder?.dispose();
     _recorder = null;
     _isCurrentlyRecording = false;
