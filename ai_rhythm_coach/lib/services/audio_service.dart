@@ -19,7 +19,6 @@ class AudioService {
   String? _currentRecordingPath;
   bool _isInitialized = false;
   bool _isCurrentlyRecording = false;
-  StreamSubscription<int>? _tickSubscription;
 
   /// Initialize audio session, recorder, and metronome.
   Future<void> initialize() async {
@@ -36,6 +35,9 @@ class AudioService {
     _recorder = AudioRecorder();
 
     // Initialize metronome with custom click sounds
+    // Note: Metronome package has a bug where init() doesn't await the platform
+    // call internally, so the native Metronome object may not be ready when init
+    // returns. We add a delay to let the native init complete.
     await _metronome.init(
       'assets/audio/click_low.wav',
       accentedPath: 'assets/audio/click_high.wav',
@@ -45,6 +47,8 @@ class AudioService {
       timeSignature: 4,
       sampleRate: 44100,
     );
+    // Allow native platform init to complete (workaround for package bug)
+    await Future.delayed(const Duration(milliseconds: 500));
 
     // Configure audio session AFTER constructing recorder and metronome
     await _configureAudioSession();
@@ -71,29 +75,21 @@ class AudioService {
 
   /// Play a 4-beat count-in using the metronome, then leave metronome running.
   ///
-  /// The metronome continues playing after count-in completes so recording
-  /// starts with the metronome already running.
+  /// Uses timer-based waiting instead of tickStream because the metronome
+  /// package has a race condition where tickStream events may not fire
+  /// (native init not awaited → play() silently fails → no ticks emitted).
+  /// Timer-based count-in is reliable for 4 beats and drift is negligible.
   Future<void> playCountIn(int bpm) async {
     if (!_isInitialized) {
       throw AudioRecordingException('AudioService not initialized');
     }
 
     await _metronome.setBPM(bpm);
-
-    final completer = Completer<void>();
-    int countInBeats = 0;
-
-    _tickSubscription = _metronome.tickStream.listen((int tick) {
-      countInBeats++;
-      if (countInBeats >= 4 && !completer.isCompleted) {
-        completer.complete();
-      }
-    });
-
     await _metronome.play();
-    await completer.future;
-    await _tickSubscription?.cancel();
-    _tickSubscription = null;
+
+    // Wait for exactly 4 beats based on BPM timing
+    final beatDurationMs = (60000 / bpm).round();
+    await Future.delayed(Duration(milliseconds: beatDurationMs * 4));
     // Metronome keeps playing -- recording starts now
   }
 
@@ -172,8 +168,6 @@ class AudioService {
 
   /// Dispose all audio resources.
   Future<void> dispose() async {
-    await _tickSubscription?.cancel();
-    _tickSubscription = null;
     await _metronome.stop();
     await _recorder?.dispose();
     _recorder = null;
