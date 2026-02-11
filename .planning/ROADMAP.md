@@ -12,7 +12,7 @@ This roadmap delivers the core practice loop: a user taps Start, hears a metrono
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Audio Recording** - Fix broken audio capture so microphone recording produces valid WAV files
+- [x] **Phase 1: Audio Recording** - Fix broken audio capture so microphone recording produces valid WAV files
 - [ ] **Phase 2: Onset Detection** - Accurately identify beat hits from recorded audio using FFT analysis
 - [ ] **Phase 3: Latency Calibration** - Compensate for device-specific audio latency so timing results are fair
 - [ ] **Phase 4: Results Display** - Show per-beat timing accuracy and complete the end-to-end practice loop
@@ -31,8 +31,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans:** 2 plans
 
 Plans:
-- [ ] 01-01-PLAN.md -- Replace flutter_sound with record + metronome packages, rewrite AudioService
-- [ ] 01-02-PLAN.md -- Fix PracticeController/main.dart bugs, add WAV validation, verify build
+- [x] 01-01-PLAN.md -- Replace flutter_sound with record + metronome packages, rewrite AudioService
+- [x] 01-02-PLAN.md -- Fix PracticeController/main.dart bugs, add WAV validation, verify build
 
 ### Phase 2: Onset Detection
 **Goal**: Beat hits in recorded audio are accurately identified and matched to expected beat times
@@ -80,7 +80,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Audio Recording | 0/2 | Planned | - |
+| 1. Audio Recording | 2/2 | Complete | 2026-02-11 |
 | 2. Onset Detection | 0/TBD | Not started | - |
 | 3. Latency Calibration | 0/TBD | Not started | - |
 | 4. Results Display | 0/TBD | Not started | - |

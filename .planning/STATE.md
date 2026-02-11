@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-10)
 
 **Core value:** The practice loop must work reliably: user taps Start, hears a metronome, plays along, and sees accurate timing results.
-**Current focus:** Phase 1 - Audio Recording
+**Current focus:** Phase 1 complete, ready for Phase 2 - Onset Detection
 
 ## Current Position
 
-Phase: 1 of 4 (Audio Recording)
+Phase: 1 of 4 (Audio Recording) — COMPLETE
 Plan: 2 of 2 in current phase (PHASE COMPLETE)
-Status: Phase 01 Complete
-Last activity: 2026-02-10 -- Completed 01-02-PLAN.md
+Status: Phase 1 verified on physical device, ready for Phase 2
+Last activity: 2026-02-11 -- Phase 1 device-tested and bug-fixed
 
-Progress: [██░░░░░░░░] 20%
+Progress: [██░░░░░░░░] 25%
 
 ## Performance Metrics
 
@@ -27,15 +27,14 @@ Progress: [██░░░░░░░░] 20%
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
-
-**Recent Trend:**
-- Last 5 plans: -
-- Trend: -
-
-*Updated after each plan completion*
 | Phase 01 P01 | 3min | 2 tasks | 3 files |
 | Phase 01 P02 | 3min | 2 tasks | 4 files |
+
+**Recent Trend:**
+- Last 5 plans: 3min, 3min
+- Trend: Consistent
+
+*Updated after each plan completion*
 
 ## Accumulated Context
 
@@ -51,6 +50,10 @@ Recent decisions affecting current work:
 - [Phase 01]: Removed playRecording/stopPlayback methods -- not needed for Phase 1 practice flow
 - [Phase 01]: MetronomeBleedException handling removed from PracticeController -- caught by generic else branch
 - [Phase 01]: WAV validation uses byte-level header parsing rather than external library
+- [Phase 01 Debug]: Metronome package native Android code never calls result.success() on method channel — all metronome calls must be fire-and-forget (unawaited)
+- [Phase 01 Debug]: Metronome package Metronome.init() doesn't await platform call internally — 500ms delay added after init for native side to complete
+- [Phase 01 Debug]: Count-in uses timer-based wait (Future.delayed) instead of tickStream — tickStream unreliable due to native race condition
+- [CI]: Updated Flutter version in GitHub Actions from 3.24.0 to 3.38.9 for audio_session ^0.2.2 compatibility
 
 ### Pending Todos
 
@@ -58,12 +61,12 @@ None yet.
 
 ### Blockers/Concerns
 
-- [Research]: flutter_sound has documented Android recording corruption -- Phase 1 must replace it
 - [Research]: FFT threshold tuning is empirical -- Phase 2 will need iterative testing with diverse recordings
 - [Research]: All audio features must be tested on physical Android devices -- emulator gives false confidence
+- [CRITICAL]: Metronome package (v2.0.7) has multiple bugs — native method channel never returns results, init doesn't await platform call. All calls must be fire-and-forget. Consider replacing with custom implementation in future phases if more issues surface.
 
 ## Session Continuity
 
-Last session: 2026-02-10
-Stopped at: Completed 01-02-PLAN.md (Phase 01 complete)
+Last session: 2026-02-11
+Stopped at: Phase 1 complete and device-verified. Ready for `/gsd:plan-phase 2`
 Resume file: None
