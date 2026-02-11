@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-10)
 
 **Core value:** The practice loop must work reliably: user taps Start, hears a metronome, plays along, and sees accurate timing results.
-**Current focus:** Phase 1 complete, ready for Phase 2 - Onset Detection
+**Current focus:** Phase 2 - Onset Detection (Plan 1 complete, Plan 2 next)
 
 ## Current Position
 
-Phase: 1 of 4 (Audio Recording) — COMPLETE
-Plan: 2 of 2 in current phase (PHASE COMPLETE)
-Status: Phase 1 verified on physical device, ready for Phase 2
-Last activity: 2026-02-11 -- Phase 1 device-tested and bug-fixed
+Phase: 2 of 4 (Onset Detection)
+Plan: 1 of 2 in current phase
+Status: Plan 02-01 complete -- adaptive onset detection implemented
+Last activity: 2026-02-11 -- Onset detection refactored with adaptive thresholding
 
-Progress: [██░░░░░░░░] 25%
+Progress: [███░░░░░░░] 37%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
-- Average duration: 3min
-- Total execution time: 0.1 hours
+- Total plans completed: 3
+- Average duration: 4min
+- Total execution time: 0.2 hours
 
 **By Phase:**
 
@@ -29,9 +29,10 @@ Progress: [██░░░░░░░░] 25%
 |-------|-------|-------|----------|
 | Phase 01 P01 | 3min | 2 tasks | 3 files |
 | Phase 01 P02 | 3min | 2 tasks | 4 files |
+| Phase 02 P01 | 5min | 2 tasks | 4 files |
 
 **Recent Trend:**
-- Last 5 plans: 3min, 3min
+- Last 5 plans: 3min, 3min, 5min
 - Trend: Consistent
 
 *Updated after each plan completion*
@@ -54,6 +55,11 @@ Recent decisions affecting current work:
 - [Phase 01 Debug]: Metronome package Metronome.init() doesn't await platform call internally — 500ms delay added after init for native side to complete
 - [Phase 01 Debug]: Count-in uses timer-based wait (Future.delayed) instead of tickStream — tickStream unreliable due to native race condition
 - [CI]: Updated Flutter version in GitHub Actions from 3.24.0 to 3.38.9 for audio_session ^0.2.2 compatibility
+- [Phase 02]: Used gamma=10.0 for log compression -- moderate starting point, tunable on device
+- [Phase 02]: Adaptive threshold delta=2.0 with offset=0.01 -- more sensitive, can increase if false positives on device
+- [Phase 02]: Frame timing uses hopSize/2 instead of fftSize/2 -- more accurate onset positioning
+- [Phase 02]: MetronomeBleedException re-thrown rather than swallowed -- callers must handle bleed explicitly
+- [Phase 02]: Synthetic tests use checkBleed: false since perfectly-timed impulses trigger bleed detection
 
 ### Pending Todos
 
@@ -68,5 +74,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Phase 1 complete and device-verified. Ready for `/gsd:plan-phase 2`
+Stopped at: Completed 02-01-PLAN.md (adaptive onset detection). Next: 02-02-PLAN.md
 Resume file: None
